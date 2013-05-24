@@ -16,9 +16,6 @@
 #define WAIT 500
 #define BLINK_DELAY 50
 
-#define DATA_MODE CPOL
-//#define DATA_MODE CPHA
-
 
 /* the latch / /CS pin has to be on portB to allow setting it's value with 
  * direct port access to improve the execution speed */
@@ -29,6 +26,7 @@ const int potiCsPinPORTB = potiCsPin - 8;
 const int enPwr = 6;
 const int debugLed = 7;
 const int ledOEPin = 5;
+const int ssPin = 10;
 
 /* 
  * Data structures 
@@ -126,13 +124,11 @@ void setup() {
 	digitalWrite(enPwr, HIGH);
 	
 	/* Enable SPI output and configure non-default options.
-	 * Both STP04CM05 and AD5204 IC support SPI in high speed mode,
-	 * STP04CM05 seems to sample too late -> SPI needs to be set to CPHA mode
-	 * where data is assumed to be sampled at falling clk edge.
-	 * AD5204 has problems with this data mode, but since communication with
-	 * the IC is less frequent, the default mode for the program is CPHA mode,
-	 * and the data mode is switched to CPHA=0 (sample at rising edge) before 
-	 * every transfer to the AD5204 and reset afterwards */
+	 * Both STP04CM05 and AD5204 IC support SPI in high speed mode
+	 * 
+	 * Important: with the first revision of the pcb the /SS pin has to 
+	 * be set to output manually to prevent the SPI from entering slave mode */
+	pinMode(ssPin, OUTPUT);
 	SPI.begin();
 	sbi(SPCR, SPI2X);
 
@@ -177,7 +173,8 @@ void blink(uint8_t blink_count) {
 void loop() {
 	
 
-	/* OE duty = 90% */
+	/* /OE duty cycle for LED drivers
+	 * 0 = always on */
 	analogWrite(ledOEPin, 50);
 
 	/* set current limit 
