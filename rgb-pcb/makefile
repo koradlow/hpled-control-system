@@ -1,4 +1,4 @@
-SOURCES :=
+SOURCES := twislave_sm.c
 LIBRARIES :=
 BOARD := atmega328
 AVRDUDEFLAGS := -c stk500 -p m328p -P /dev/ttyACM3

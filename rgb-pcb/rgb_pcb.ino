@@ -1,7 +1,14 @@
 #include <SPI.h>
 #include <TimerOne.h>
-#include <DigitalToggle.h>
+#include <util/atomic.h>
 
+extern "C" {
+	#include <twislave_sm.h>
+}
+
+/*
+ * Macros to set and clear bits
+ */
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #endif
@@ -9,13 +16,21 @@
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif 
 
-#define PWM_LEVELS 64
+/*
+ * Module constants and pin definitions
+ */
+#define PWM_LEVELS 32
 #define PWM_STEP 256/PWM_LEVELS
 #define LED_COUNT 4
-#define SPEED 3
-#define WAIT 500
-#define BLINK_DELAY 50
 
+/* define the offsets in the receive and transmit buffers for I2C (TWI) */
+#define RX_RGB_LED 0
+#define RX_CURRENT_LIMIT 20
+#define RX_CURRENT_UPDATE 24
+#define RX_MESSAGE_CLEAR 25
+#define TX_CURRENT_LIMIT 0
+#define TX_MESSAGE_CNT 4
+#define TX_MESSAGE 5
 
 /* the latch / /CS pin has to be on portB to allow setting it's value with 
  * direct port access to improve the execution speed */
@@ -48,13 +63,13 @@ struct RGB_State {
  * Global variables
  */
 volatile struct RGB_State rgb_state;
-uint16_t soft_pwm;
-uint8_t ticker = 0;
+static uint16_t soft_pwm;
+static uint8_t ticker = 0;
+static uint8_t current_limit;
 
 /*
  * Helper functions
  */
-
 /* the Poti has a range of 10kOhm divided in 255 discrete steps,
  * set Terminal Bx to gnd and measure resistance between Wx and gnd.
  * Global interrupts are disabled during execution of this function to
@@ -69,6 +84,18 @@ void setPotiValue(byte channel, byte value) {
 	SPI.transfer(value);
 	bitSet(PORTB, potiCsPinPORTB);
 	sei();
+}
+
+void set_brightness(void) {
+		/* /OE duty cycle for LED drivers
+	 * 0 = always on */
+	analogWrite(ledOEPin, 50);
+
+	/* set current limit 
+	 * 251 =  full power, 215 = lowest power */
+	setPotiValue(0, 240);
+	setPotiValue(1, 240);
+	setPotiValue(2, 240);
 }
 
 void sendByte(byte value) {
@@ -113,6 +140,7 @@ void updatePWM() {
 }
 
 void setup() {
+	cli();
 	/* configure & set the SS pins for SPI communication with slave ICs*/
 	pinMode(ledLatchPin, OUTPUT);
 	pinMode(potiCsPin, OUTPUT);
@@ -133,8 +161,16 @@ void setup() {
 	sbi(SPCR, SPI2X);
 
 	/* initialize Timer1 for periodic callback of soft pwm function (period in usecs) */
-	Timer1.initialize(200); 
+	Timer1.initialize(312); 
 	Timer1.attachInterrupt(updatePWM);
+	
+	/* initialize TWI (I2C) - it is configured to behave as an interrupt driven
+	 * externally addressable read/write memory with globally accessible transmit
+	 * and receive buffers (txbuffer, rxbuffer) */
+	init_twi_slave(0x2A, false);
+	sei();
+	
+	set_brightness();
 }
 
 void setRGBVal(byte led, byte r, byte g, byte b) {
@@ -144,98 +180,42 @@ void setRGBVal(byte led, byte r, byte g, byte b) {
 	rgb_state.led[led].b = b;
 }
 
-void test_brightness(uint8_t channel) {
-	const byte lower_bound =  215;
-	const byte upper_bound = 251;
-	for( int p = lower_bound; p <= upper_bound; p++) {
-		setPotiValue(channel, p);
-		delay(250);
-		digitalWrite(debugLed, !digitalRead(debugLed));
-	}
-	for( int p = upper_bound; p >= lower_bound; p--) {
-		setPotiValue(channel, p);
-		delay(250);
-		digitalWrite(debugLed, !digitalRead(debugLed));
-	}
+/* reads the current limit values from the EEPROM and updates the values
+ * in the local buffers */
+void read_current_limit_eeprom(void) {
+	// TODO:
+	// read values from EEPROM
+	// copy values to txbuffer
+	// copy values to rgb_state
+	// set RX_CURRENT_UPDATE flag in rxbuffer
 }
 
-void blink(uint8_t blink_count) {
-	for (uint8_t cnt = 0; cnt < blink_count; cnt++) {
-		analogWrite(ledOEPin, 255);
-		digitalWrite(debugLed, !digitalRead(debugLed));
-		delay(BLINK_DELAY);
-		analogWrite(ledOEPin, 26);
-		digitalWrite(debugLed, !digitalRead(debugLed));
-		delay(BLINK_DELAY);
-	}
+/* writes the current limit to the EEPROM */
+void write_current_limit_eeprom(void) {
+	// TODO
+}
+
+void set_current_limit() {
+	for (uint8_t channel = 0; channel < LED_COUNT; channel++) 
+		setPotiValue(channel, rgb_state.current_limit[0]);
 }
 
 void loop() {
+	/* update the local rgb state by copying the values from the I2C receive
+	 * buffer in an atomic operation */
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		memcpy((void*)&rgb_state, (void*)rxbuffer, sizeof(rgb_state));
+	}
+
+	/* update the brightness for all LED drivers */
+	analogWrite(ledOEPin, rgb_state.led[0].bright);
 	
-
-	/* /OE duty cycle for LED drivers
-	 * 0 = always on */
-	analogWrite(ledOEPin, 50);
-
-	/* set current limit 
-	 * 251 =  full power, 215 = lowest power */
-	setPotiValue(0, 235);
-	setPotiValue(1, 235);
-	setPotiValue(2, 235);
-	
-	/* RED to Yelllow */
-	for (int i = 0; i < 256; i++) {
-		setRGBVal(0, 255, 0, i);
-		setRGBVal(1, 255, i, 255);
-		setRGBVal(2, 255-i, 255, 255);
-		setRGBVal(3, 0, 255, 255-i);
-		delay(SPEED);
+	/* check if the current limit was updated */
+	if (rgb_state.current_limit[0] != current_limit) {
+		current_limit = rgb_state.current_limit[0];
+		set_current_limit();
 	}
-
-	/* Yellow to white */
-	for (int i = 0; i < 256; i++) {
-		setRGBVal(0, 255, i, 255);
-		setRGBVal(1, 255-i, 255, 255);
-		setRGBVal(2, 0, 255, 255-i);
-		setRGBVal(3, i, 255, 0);
-		delay(SPEED);
-	}
-
-	/* White to Azure */
-	for (int i = 0; i < 256; i++) {
-		setRGBVal(0, 255-i, 255, 255);
-		setRGBVal(1, 0, 255, 255-i);
-		setRGBVal(2, i, 255, 0);
-		setRGBVal(3, 255, 255-i, 0);
-		delay(SPEED);
-	}
-
-	/* Azure to Blue */
-	for (int i = 0; i < 256; i++) {
-		setRGBVal(0, 0, 255, 255-i);
-		setRGBVal(1, i, 255, 0);
-		setRGBVal(2, 255, 255-i, 0);
-		setRGBVal(3, 255, 0, i);
-		delay(SPEED);
-	}
-	
-	/* Blue to Purple */
-	for (int i = 0; i < 256; i++) {
-		setRGBVal(0, i, 255, 0);
-		setRGBVal(1, 255, 255-i, 0);
-		setRGBVal(2, 255, 0, i);
-		setRGBVal(3, 255, i, 255);
-		delay(SPEED);
-	}
-
-	/* Purple to Red */
-	for (int i = 0; i < 256; i++) {
-		setRGBVal(0, 255, 255-i, 0);
-		setRGBVal(1, 255, 0, i);
-		setRGBVal(2, 255, i, 255);
-		setRGBVal(3, 255-i, 255, 255);
-		delay(SPEED);
-	}
+	delay(25);
 }
 // x = (10k - R_pot) / 39
 
