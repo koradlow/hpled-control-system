@@ -1,4 +1,5 @@
 #include <SPI.h>
+#include <EEPROM.h>
 #include <TimerOne.h>
 #include <util/atomic.h>
 
@@ -31,6 +32,7 @@ extern "C" {
 #define TX_CURRENT_LIMIT 0
 #define TX_MESSAGE_CNT 4
 #define TX_MESSAGE 5
+#define EEPROM_CURRENT 0
 
 /* the latch / /CS pin has to be on portB to allow setting it's value with 
  * direct port access to improve the execution speed */
@@ -65,7 +67,6 @@ struct RGB_State {
 volatile struct RGB_State rgb_state;
 static uint16_t soft_pwm;
 static uint8_t ticker = 0;
-static uint8_t current_limit;
 
 /*
  * Helper functions
@@ -86,16 +87,26 @@ void setPotiValue(byte channel, byte value) {
 	sei();
 }
 
-void set_brightness(void) {
-		/* /OE duty cycle for LED drivers
-	 * 0 = always on */
-	analogWrite(ledOEPin, 50);
+/* reads the current limit values from the EEPROM and updates the values
+ * in the local buffers */
+void read_current_limit_eeprom(void) {
+	for(uint8_t channel = 0; channel < LED_COUNT; channel++) {
+		rgb_state.current_limit[channel] = EEPROM.read(EEPROM_CURRENT+channel);
+	}
+	memcpy((void*)&rxbuffer[RX_CURRENT_LIMIT], (void*)&rgb_state.current_limit[0], LED_COUNT);
+	memcpy((void*)&txbuffer[TX_CURRENT_LIMIT], (void*)&rgb_state.current_limit[0], LED_COUNT);
+	rxbuffer[RX_CURRENT_UPDATE] = true;
+}
 
-	/* set current limit 
-	 * 251 =  full power, 215 = lowest power */
-	setPotiValue(0, 240);
-	setPotiValue(1, 240);
-	setPotiValue(2, 240);
+/* writes the current limit to the EEPROM */
+void write_current_limit_eeprom(void) {
+	for(uint8_t channel = 0; channel < LED_COUNT; channel++)
+		EEPROM.write(EEPROM_CURRENT+channel, rgb_state.current_limit[channel]);
+}
+
+void set_current_limit() {
+	for (uint8_t channel = 0; channel < LED_COUNT; channel++) 
+		setPotiValue(channel, rgb_state.current_limit[0]);
 }
 
 void sendByte(byte value) {
@@ -150,7 +161,7 @@ void setup() {
 	digitalWrite(ledLatchPin, LOW);
 	digitalWrite(potiCsPin, HIGH);
 	digitalWrite(enPwr, HIGH);
-	
+
 	/* Enable SPI output and configure non-default options.
 	 * Both STP04CM05 and AD5204 IC support SPI in high speed mode
 	 * 
@@ -159,6 +170,11 @@ void setup() {
 	pinMode(ssPin, OUTPUT);
 	SPI.begin();
 	sbi(SPCR, SPI2X);
+
+	/* read the current limit values from EEPROM to restore the old state */
+	read_current_limit_eeprom();
+	/* switch off the LED drivers until data is received */
+	rxbuffer[4] = 0xFF;
 
 	/* initialize Timer1 for periodic callback of soft pwm function (period in usecs) */
 	Timer1.initialize(312); 
@@ -169,8 +185,6 @@ void setup() {
 	 * and receive buffers (txbuffer, rxbuffer) */
 	init_twi_slave(0x2A, false);
 	sei();
-	
-	set_brightness();
 }
 
 void setRGBVal(byte led, byte r, byte g, byte b) {
@@ -178,26 +192,6 @@ void setRGBVal(byte led, byte r, byte g, byte b) {
 	rgb_state.led[led].g_1 = g;
 	rgb_state.led[led].g_2 = g;
 	rgb_state.led[led].b = b;
-}
-
-/* reads the current limit values from the EEPROM and updates the values
- * in the local buffers */
-void read_current_limit_eeprom(void) {
-	// TODO:
-	// read values from EEPROM
-	// copy values to txbuffer
-	// copy values to rgb_state
-	// set RX_CURRENT_UPDATE flag in rxbuffer
-}
-
-/* writes the current limit to the EEPROM */
-void write_current_limit_eeprom(void) {
-	// TODO
-}
-
-void set_current_limit() {
-	for (uint8_t channel = 0; channel < LED_COUNT; channel++) 
-		setPotiValue(channel, rgb_state.current_limit[0]);
 }
 
 void loop() {
@@ -211,9 +205,11 @@ void loop() {
 	analogWrite(ledOEPin, rgb_state.led[0].bright);
 	
 	/* check if the current limit was updated */
-	if (rgb_state.current_limit[0] != current_limit) {
-		current_limit = rgb_state.current_limit[0];
+	if (rxbuffer[RX_CURRENT_UPDATE] != 0x00) {
 		set_current_limit();
+		memcpy((void*)&txbuffer[TX_CURRENT_LIMIT], (void*)&rgb_state.current_limit[0], LED_COUNT);
+		rxbuffer[RX_CURRENT_UPDATE] = false;
+		write_current_limit_eeprom();
 	}
 	delay(25);
 }
