@@ -2,42 +2,37 @@
 import quick2wire.i2c as i2c
 import time
 
+address = 0x2A
+
 def set_brightness(value):
-	dest_brightness = 0x14;
 	print("setting brightness to %d" % value)
-	bus.transaction(
-		i2c.writing_bytes(address, dest_brightness),
-		i2c.writing_bytes(address, value, value, value, value, 0x01))
+	with i2c.I2CMaster() as bus:
+		dest_brightness = 0x14;
+		bus.transaction(
+			i2c.writing_bytes(address, dest_brightness),
+			i2c.writing_bytes(address, value, value, value, value, 0x01))
 
-def set_led(led, *rgb):
-	dest_led = 0x05 * led;
-	bus.transaction(
-		i2c.writing_bytes(address, dest_led),
-		i2c.writing_bytes(address, rgb)
+def set_led(led, rgb):
+	with i2c.I2CMaster() as bus:
+		dest_led = 0x05 * led;
+		bus.transaction(
+			i2c.writing_bytes(address, dest_led),
+			i2c.writing_bytes(address, rgb[0], rgb[1], rgb[1], rgb[2], rgb[3]))
 
-def read(source, bytes):
-	result = bus.transaction(
-		i2c.writing_bytes(address, source),
-		i2c.reading(address, bytes))
+def read(source, count):
+	with i2c.I2CMaster() as bus:
+		print("reading %d bytes from %02x" % (count, source))
+		result = bus.transaction(
+			i2c.writing_bytes(address, source),
+			i2c.reading(address, count))
 
 		return result[0]
 
-address = 0x2A
-dest_register = 0x00
-source_register = 0x13
-
-with i2c.I2CMaster() as bus:    
-		bus.transaction( 
-			i2c.writing_bytes(address, dest_register),
-			i2c.writing_bytes(address, 0xFF, 0x00, 0x00, 0x00, 0x00))
-		time.sleep(5)
-		set_brightness(210)
-		read_results = bus.transaction(
-				i2c.writing_bytes(address, source_register),
-				i2c.reading(address, 26))
-
-		print("read %d bytes" % len(read_results[0]))
-		for n in read_results:
-			for i in n:
-				print("%02x" % i)
-			print(" ")
+if __name__ == "__main__":
+	set_led(0, [0x00, 0xFB, 0x10, 0x50])
+	set_brightness(215)
+	read_result = read(0x00, 26)
+	print("read %d bytes" % len(read_result))
+	for n in read_result:
+		print("%02x" % n)
+	print(" ")
