@@ -3,6 +3,7 @@
 #include <TimerOne.h>
 #include <util/atomic.h>
 
+
 extern "C" {
 	#include <twislave_sm.h>
 }
@@ -67,6 +68,7 @@ struct RGB_State {
 volatile struct RGB_State rgb_state;
 static uint16_t soft_pwm;
 static uint8_t ticker = 0;
+static volatile bool twi_rx_event;
 
 /*
  * Helper functions
@@ -122,12 +124,18 @@ void sendBytes(uint16_t value) {
 	bitClear(PORTB,ledLatchPinPORTB);
 }
 
+/* set flag to notify main loop about TWI rxbuffer update */
+void twi_sl_rcv_cb(uint8_t addr, uint8_t length) {
+	twi_rx_event = true;
+}
+
 /* calculate the soft pwm values, and output them via SPI
  * (periodic callback function for Timer1) */
 void updatePWM() {
 	/* update output at beginning of function to account for variable
 	 * execution time of the function (lower jitter) */ 
 	sendBytes(soft_pwm);
+
 	/* if the soft pwm ticker / comperator overflows, reset the current
 	 * soft-pwm values */
 	if ( ++ticker >= PWM_LEVELS ){
@@ -173,36 +181,29 @@ void setup() {
 
 	/* read the current limit values from EEPROM to restore the old state */
 	read_current_limit_eeprom();
-	/* switch off the LED drivers until data is received */
-	rxbuffer[4] = 0xFF;
 
 	/* initialize Timer1 for periodic callback of soft pwm function (period in usecs) */
-	Timer1.initialize(312); 
+	Timer1.initialize( 312 ); 
 	Timer1.attachInterrupt(updatePWM);
 	
 	/* initialize TWI (I2C) - it is configured to behave as an interrupt driven
 	 * externally addressable read/write memory with globally accessible transmit
 	 * and receive buffers (txbuffer, rxbuffer) */
 	init_twi_slave(0x2A, false);
+	register_sl_receive_cb(twi_sl_rcv_cb);
 	sei();
-}
-
-void setRGBVal(byte led, byte r, byte g, byte b) {
-	rgb_state.led[led].r = r;
-	rgb_state.led[led].g_1 = g;
-	rgb_state.led[led].g_2 = g;
-	rgb_state.led[led].b = b;
 }
 
 void loop() {
 	/* update the local rgb state by copying the values from the I2C receive
-	 * buffer in an atomic operation */
-	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+	* buffer, if the data was received */
+	if (twi_rx_event) {
 		memcpy((void*)&rgb_state, (void*)rxbuffer, sizeof(rgb_state));
+		twi_rx_event = false;
 	}
-
 	/* update the brightness for all LED drivers */
 	analogWrite(ledOEPin, rgb_state.led[0].bright);
+	digitalWrite(debugLed, !digitalRead(debugLed));
 	
 	/* check if the current limit was updated */
 	if (rxbuffer[RX_CURRENT_UPDATE] != 0x00) {
