@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <TimerOne.h>
+#include "TimerZero.h"
 #include <util/atomic.h>
 
 
@@ -66,7 +67,7 @@ struct RGB_State {
  * Global variables
  */
 volatile struct RGB_State rgb_state;
-static uint16_t soft_pwm;
+static volatile uint16_t soft_pwm;
 static uint8_t ticker = 0;
 static volatile bool twi_rx_event;
 
@@ -165,62 +166,31 @@ void updatePWM() {
 		}
 	}
 }
+volatile uint8_t tick;
+volatile uint8_t pwm_status;
+void togglePin(void) {
+	
+	if ( ++tick >= 32 ) {
+		tick = 0;
+		pwm_status = 0;
+		bitClear(PORTD, PD5);
+	}
+	if (tick > 8)
+		bitSet(PORTD, PD5);
+}
 
 void setup() {
 	cli();
 	/* configure & set the SS pins for SPI communication with slave ICs*/
-	pinMode(ledLatchPin, OUTPUT);
-	pinMode(potiCsPin, OUTPUT);
-	pinMode(enPwr, OUTPUT);
-	pinMode(debugLed, OUTPUT);
+	pinMode(ledOEPin, OUTPUT);
 	
-	digitalWrite(ledLatchPin, LOW);
-	digitalWrite(potiCsPin, HIGH);
-	digitalWrite(enPwr, HIGH);
-
-	/* Enable SPI output and configure non-default options.
-	 * Both STP04CM05 and AD5204 IC support SPI in high speed mode
-	 * 
-	 * Important: with the first revision of the pcb the /SS pin has to 
-	 * be set to output manually to prevent the SPI from entering slave mode */
-	pinMode(ssPin, OUTPUT);
-	SPI.begin();
-	sbi(SPCR, SPI2X);
-
-	/* read the current limit values from EEPROM to restore the old state */
-	read_current_limit_eeprom();
-
-	/* initialize Timer1 for periodic callback of soft pwm function (period in usecs) */
-	Timer1.initialize( 312 ); 
-	Timer1.attachInterrupt(updatePWM);
-	
-	/* initialize TWI (I2C) - it is configured to behave as an interrupt driven
-	 * externally addressable read/write memory with globally accessible transmit
-	 * and receive buffers (txbuffer, rxbuffer) */
-	uint8_t i2c_sl_addr = 0x20 | read_i2c_slave_address_dip();
-	init_twi_slave(i2c_sl_addr, false);
-	register_sl_receive_cb(twi_sl_rcv_cb);
+	Timer0.initialize(63);
+	Timer0.attachInterrupt(togglePin);
 	sei();
 }
 
 void loop() {
-	/* update the local rgb state by copying the values from the I2C receive
-	* buffer, if the data was received */
-	if (twi_rx_event) {
-		memcpy((void*)&rgb_state, (void*)rxbuffer, sizeof(rgb_state));
-		twi_rx_event = false;
-	}
-	/* update the brightness for all LED drivers */
-	analogWrite(ledOEPin, rgb_state.led[0].bright);
-	digitalWrite(debugLed, !digitalRead(debugLed));
 	
-	/* check if the current limit was updated */
-	if (rxbuffer[RX_CURRENT_UPDATE] != 0x00) {
-		set_current_limit();
-		memcpy((void*)&txbuffer[TX_CURRENT_LIMIT], (void*)&rgb_state.current_limit[0], LED_COUNT);
-		rxbuffer[RX_CURRENT_UPDATE] = false;
-		write_current_limit_eeprom();
-	}
 	delay(25);
 }
 // x = (10k - R_pot) / 39
