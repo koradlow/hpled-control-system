@@ -89,6 +89,14 @@ void setPotiValue(byte channel, byte value) {
 	sei();
 }
 
+/* reads the lower 4 bits of the I2C slave address for this board set with
+ * a 4-way DIP switch */
+uint8_t read_i2c_slave_address_dip(void) {
+	uint8_t i2c_addr = digitalRead(A0) | digitalRead(A1) << 1 | 
+			digitalRead(A2) << 2 | digitalRead(A3) << 3;
+	return i2c_addr;
+}
+
 /* reads the current limit values from the EEPROM and updates the values
  * in the local buffers */
 void read_current_limit_eeprom(void) {
@@ -189,7 +197,8 @@ void setup() {
 	/* initialize TWI (I2C) - it is configured to behave as an interrupt driven
 	 * externally addressable read/write memory with globally accessible transmit
 	 * and receive buffers (txbuffer, rxbuffer) */
-	init_twi_slave(0x2A, false);
+	uint8_t i2c_sl_addr = 0x20 | read_i2c_slave_address_dip();
+	init_twi_slave(i2c_sl_addr, false);
 	register_sl_receive_cb(twi_sl_rcv_cb);
 	sei();
 }
