@@ -202,10 +202,13 @@ ISR (TWI_vect)
 			if (buffer_addr == 1)
 				write_destination = internal_buffer[0];
 			/* received a complete transmission. If a valid write address was
-			 * provided copy data to destination of the global receive buffer 
+			 * provided && the last data byte matches the number of received
+			 * bytes (very simple protection mechanism against faulty transmissions),
+			 * copy data to destination of the global receive buffer 
 			 * and inform the user about the update */
-			else if (write_destination + buffer_addr < BUFFER_SIZE) {
-				memcpy((void*)&rxbuffer[write_destination], (void*)&internal_buffer[0], buffer_addr);
+			else if (write_destination + buffer_addr < BUFFER_SIZE && 
+							buffer_addr == internal_buffer[buffer_addr-1]) {
+				memcpy((void*)&rxbuffer[write_destination], (void*)&internal_buffer[0], buffer_addr-1);
 				sl_receive_cb(write_destination, buffer_addr);
 				write_destination += buffer_addr;
 			}

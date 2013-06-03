@@ -1,9 +1,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <TimerOne.h>
-#include "TimerZero.h"
 #include <util/atomic.h>
-
 
 extern "C" {
 	#include <twislave_sm.h>
@@ -28,8 +26,9 @@ extern "C" {
 
 /* define the offsets in the receive and transmit buffers for I2C (TWI) */
 #define RX_RGB_LED 0
-#define RX_CURRENT_LIMIT 20
-#define RX_CURRENT_UPDATE 24
+#define RX_CURRENT_LIMIT 16
+#define RX_CURRENT_UPDATE 20
+#define RX_CURRENT_BRIGHTNESS 21
 #define RX_MESSAGE_CLEAR 25
 #define TX_CURRENT_LIMIT 0
 #define TX_MESSAGE_CNT 4
@@ -55,12 +54,13 @@ struct RGB_LED {
 	uint8_t g_1;
 	uint8_t g_2;
 	uint8_t b;
-	uint8_t bright;
 };
 
 struct RGB_State {
 	struct RGB_LED led[LED_COUNT];
 	uint8_t current_limit[LED_COUNT];
+	uint8_t dummy_byte;	// for correct memory mapping to rx buffer
+	uint8_t brightness;
 };
 
 /*
@@ -68,7 +68,7 @@ struct RGB_State {
  */
 volatile struct RGB_State rgb_state;
 static volatile uint16_t soft_pwm;
-static uint8_t ticker = 0;
+static volatile uint8_t ticker = 0;
 static volatile bool twi_rx_event;
 
 /*
@@ -117,7 +117,7 @@ void write_current_limit_eeprom(void) {
 
 void set_current_limit() {
 	for (uint8_t channel = 0; channel < LED_COUNT; channel++) 
-		setPotiValue(channel, rgb_state.current_limit[0]);
+		setPotiValue(channel, rgb_state.current_limit[channel]);
 }
 
 void sendByte(byte value) {
@@ -166,34 +166,66 @@ void updatePWM() {
 		}
 	}
 }
-volatile uint8_t tick;
-volatile uint8_t pwm_status;
-void togglePin(void) {
-	
-	if ( ++tick >= 32 ) {
-		tick = 0;
-		pwm_status = 0;
-		bitClear(PORTD, PD5);
-	}
-	if (tick > 8)
-		bitSet(PORTD, PD5);
-}
 
 void setup() {
 	cli();
 	/* configure & set the SS pins for SPI communication with slave ICs*/
+	pinMode(ledLatchPin, OUTPUT);
+	pinMode(potiCsPin, OUTPUT);
+	pinMode(enPwr, OUTPUT);
+	pinMode(debugLed, OUTPUT);
 	pinMode(ledOEPin, OUTPUT);
 	
-	Timer0.initialize(63);
-	Timer0.attachInterrupt(togglePin);
+	digitalWrite(ledLatchPin, LOW);
+	digitalWrite(potiCsPin, HIGH);
+	digitalWrite(enPwr, HIGH);
+	
+	/* Enable SPI output and configure non-default options.
+	 * Both STP04CM05 and AD5204 IC support SPI in high speed mode
+	 * 
+	 * Important: with the first revision of the pcb the /SS pin has to 
+	 * be set to output manually to prevent the SPI from entering slave mode */
+	pinMode(ssPin, OUTPUT);
+	SPI.begin();
+	sbi(SPCR, SPI2X);
+
+	/* read the current limit values from EEPROM to restore the old state */
+	read_current_limit_eeprom();
+
+	/* initialize Timer1 for periodic callback of soft pwm function (period in usecs) */
+	Timer1.initialize( 400 ); 
+	Timer1.attachInterrupt(updatePWM);
+
+	/* initialize TWI (I2C) - it is configured to behave as an interrupt driven
+	 * externally addressable read/write memory with globally accessible transmit
+	 * and receive buffers (txbuffer, rxbuffer) */
+	uint8_t i2c_sl_addr = 0x20 | read_i2c_slave_address_dip();
+	// de-activate internal pullups for twi.
+	digitalWrite(SDA, 0);
+	digitalWrite(SCL, 0);
+	init_twi_slave(i2c_sl_addr, false);
+	register_sl_receive_cb(twi_sl_rcv_cb);
 	sei();
 }
 
 void loop() {
+	/* update the local rgb state by copying the values from the I2C receive
+	* buffer, if the data was received */
+	if (twi_rx_event) {
+		memcpy((void*)&rgb_state, (void*)&rxbuffer[0], BUFFER_SIZE);
+		twi_rx_event = false;
+	}
+	/* update the brightness for all LED drivers */
+	analogWrite(ledOEPin, rgb_state.brightness);
+	digitalWrite(debugLed, !digitalRead(debugLed));
 	
+	/* check if the current limit was updated */
+	if (rxbuffer[RX_CURRENT_UPDATE] != 0x00) {
+		set_current_limit();
+		memcpy((void*)&txbuffer[TX_CURRENT_LIMIT], (void*)&rgb_state.current_limit[0], LED_COUNT);
+		rxbuffer[RX_CURRENT_UPDATE] = false;
+		write_current_limit_eeprom();
+	}
 	delay(25);
 }
 // x = (10k - R_pot) / 39
-
-
-
