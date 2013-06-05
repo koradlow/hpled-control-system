@@ -49,12 +49,13 @@ class RgbSet(object):
 
 
 class RgbLed(object):
-	def __init__(self, current_limit=235):
+	def __init__(self, current_limit=245):
 		self.current_limit = current_limit
 		self.r = 0
 		self.g1 = 0
 		self.g2 = 0
 		self.b = 0
+		self.current_limit_update = False
 
 	def set_color(self, **kwargs):
 		r = kwargs.get('r', None)
@@ -74,6 +75,7 @@ class RgbLed(object):
  
 	def set_current_limit(self, current_limit):
 		self.current_limit = current_limit
+		self.current_limit_update = True
 
 
 class RgbController(object):
@@ -104,6 +106,9 @@ class RgbController(object):
 				self.i2c_buffer[idx*LED_CHANNELS+2] = led.g2
 				self.i2c_buffer[idx*LED_CHANNELS+3] = led.b
 				self.i2c_buffer[RX_CURRENT_LIMIT+idx] = led.current_limit
+				if (led.current_limit_update):
+					self.i2c_buffer[RX_CURRENT_UPDATE] = 0x01
+					led.current_limit_update = False;
 
 	def get_state(self):
 		return self.i2c_buffer
@@ -162,7 +167,9 @@ if __name__ == "__main__":
 	Set1.add_led(Controller1.get_led(3))
 
 	cnt = 0
-	for n in range(0, 10):
+	Set1.get_led(2).set_current_limit(251)
+	Set1.get_led(0).set_current_limit(215)
+	for n in range(0, 1):
 		for i in range(0, 0xFF, 1):
 			try:
 				print("set %d" % cnt)
