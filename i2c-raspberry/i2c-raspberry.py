@@ -2,12 +2,11 @@
 import quick2wire.i2c as i2c
 import decorator
 import time
-import pprint
 import sys, os
-import random
-from random import randint
 
 I2C_SLAVE_ADDRESS = 0x28
+LED_CNT = 4
+LED_CHANNELS = 4
 RX_SIZE =  25
 RX_RGB_LED = 0
 RX_CURRENT_LIMIT = 16
@@ -17,68 +16,120 @@ RX_BRIGHTNESS = 21
 def retry(howmany, *exception_types, **kwargs):
 	timeout = kwargs.get('timeout', None) # seconds
 	@decorator.decorator
-	def tryIt(func, *fargs, **fkwargs):
+	def try_it(func, *fargs, **fkwargs):
 			for _ in range(howmany):
-					try: return func(*fargs, **fkwargs)
-					except exception_types or Exception as e:
-							print("I/O Exception, retry %d" % _)
-							exc_type, exc_obj, exc_tb = sys.exc_info()
-							fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-							print(exc_type, fname, exc_tb.tb_lineno)
-							if timeout is not None: time.sleep(timeout)
-	return tryIt
+					try:
+						return func(*fargs, **fkwargs)
+					except exception_types as e:
+						print("I/O Exception, retry %d" % _)
+						exc_type, exc_obj, exc_tb = sys.exc_info()
+						fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+						print(exc_type, fname, exc_tb.tb_lineno)
+						if timeout is not None: time.sleep(timeout)
+	return try_it
 
-class LedController(object):
-	def __init__(self, address, led_cnt = 4):
-		self.i2c_address = address
-		self.led = bytearray(RX_SIZE)
-		self.led_cnt = led_cnt
 
-	def set_led_color(self, led, **kwargs):
-		if (led >= self.led_cnt):
-			print("LED %d out of range" %led)
-			return
+class RgbSet(object):
+	def __init__(self, name="undef"):
+		self.leds = []
+		self.name = name
+
+	def add_led(self, led):
+		led['set'] = self.name
+		self.leds.append(led)
 	
+	def get_leds(self):
+		for led in self.leds:
+			if not led['set'] == self.name:
+				self.leds.remove(led) 
+		return self.leds
+
+	def get_led(self, led_id):
+		return self.leds[led_id]['led']
+
+
+class RgbLed(object):
+	def __init__(self, current_limit=235):
+		self.current_limit = current_limit
+		self.r = 0
+		self.g1 = 0
+		self.g2 = 0
+		self.b = 0
+
+	def set_color(self, **kwargs):
 		r = kwargs.get('r', None)
 		g = kwargs.get('g', None)
+		g1 = kwargs.get('g1', None)
+		g2 = kwargs.get('g2', None)
 		b = kwargs.get('b', None)
+
+		if r is not None: self.r = r
+		if g is not None: self.g1 = self.g2 = g
+		if g1 is not None: self.g1 = g1
+		if g2 is not None: self.g2 = g2
+		if b is not None: self.b = b
+	
+	def get_color(self):
+		return {'r':self.r, 'g1':self.g1, 'g2':self.g2, 'b':self.b, 'current_limit':self.current_limit}
+ 
+	def set_current_limit(self, current_limit):
+		self.current_limit = current_limit
+
+
+class RgbController(object):
+	def __init__(self, address, led_cnt = LED_CNT):
+		self.i2c_address = address
+		self.i2c_buffer = bytearray(RX_SIZE)
+		self.led_cnt = led_cnt
+		self.leds = []
+		self.create_leds()
+	
+	def create_leds(self):
+		for _ in range(self.led_cnt):
+			self.leds.append({'led': RgbLed(), 'set':None})
+
+	def get_led(self, number):
+		return self.leds[number]
 		
-		if r is not None: self.led[led*4] = r
-		if g is not None: self.led[led*4+1] = g
-		if g is not None: self.led[led*4+2] = g
-		if b is not None: self.led[led*4+3] = b
-	
 	def set_brightness(self, brightness):
-		self.led[RX_BRIGHTNESS] = brightness
+		self.i2c_buffer[RX_BRIGHTNESS] = brightness
 	
-	def set_current_limit(self, led, limit):
-		if (led >= self.led_cnt):
-			print("LED %d out of range" %led)
-			return
-		self.led[RX_CURRENT_LIMIT+led] = limit
-		self.led[RX_CURRENT_UPDATE] = 0x01;
-	
+	def update_i2c_buffer(self):
+		for idx in range(len(self.leds)):
+				led = self.leds[idx].get('led', None)
+				if not led:
+					continue
+				self.i2c_buffer[idx*LED_CHANNELS] = led.r
+				self.i2c_buffer[idx*LED_CHANNELS+1] = led.g1
+				self.i2c_buffer[idx*LED_CHANNELS+2] = led.g2
+				self.i2c_buffer[idx*LED_CHANNELS+3] = led.b
+				self.i2c_buffer[RX_CURRENT_LIMIT+idx] = led.current_limit
+
 	def get_state(self):
-		return self.led
-	
+		return self.i2c_buffer
+
 	@retry(2, IOError, timeout=0.05)
 	def update_color(self):
+		self.update_i2c_buffer()
 		length = bytearray(1)
 		length[0] = 16 + 1
 		with i2c.I2CMaster() as bus:
 			bus.transaction(
 				i2c.writing_bytes(self.i2c_address, 0x00),
-				i2c.writing(self.i2c_address, self.led[0:16] + length))
+				i2c.writing(self.i2c_address, self.i2c_buffer[0:16] + length))
 
 	@retry(2, IOError, timeout=0.05)
 	def update_limits(self):
+		self.update_i2c_buffer()
 		length = bytearray(1)
 		length[0] = 6 + 1
 		with i2c.I2CMaster() as bus:
 			bus.transaction(
 				i2c.writing_bytes(self.i2c_address, 0x10),
-				i2c.writing(self.i2c_address, self.led[16:22] + length))
-				
+				i2c.writing(self.i2c_address, self.i2c_buffer[16:22] + length))
+
+
+
 @retry(2, IOError, timeout = 0.05)
 def read(source, count):
 	with i2c.I2CMaster() as bus:
@@ -103,34 +154,26 @@ def brightness_test(controller):
 		time.sleep(0.01)
 
 if __name__ == "__main__":
-
-	rgb_controller_1 = LedController(I2C_SLAVE_ADDRESS)
-	rgb_controller_1.set_led_color(0x00, r=0xA0, g=0xB0, b=0x10)
-	rgb_controller_1.set_led_color(0x01, r=0xB0, g=0xA0, b=0xD1)
-	rgb_controller_1.set_led_color(0x02, r=0xB2, g=0xA2, b=0xD2)
-	rgb_controller_1.set_led_color(0x03, r=0xA0, b=0xEE)
-	rgb_controller_1.set_current_limit(0x00, 235)
-	rgb_controller_1.set_current_limit(0x01, 235)
-	rgb_controller_1.set_current_limit(0x02, 235)
-	rgb_controller_1.set_current_limit(0x03, 235)
-
-	
-	rgb_controller_1.update_color()
-	rgb_controller_1.update_limits()
+	Controller1 = RgbController(I2C_SLAVE_ADDRESS)
+	Set1 = RgbSet("set1")
+	Set1.add_led(Controller1.get_led(0))
+	Set1.add_led(Controller1.get_led(1))
+	Set1.add_led(Controller1.get_led(2))
+	Set1.add_led(Controller1.get_led(3))
 
 	cnt = 0
-	for n in range(0, 0):
+	for n in range(0, 10):
 		for i in range(0, 0xFF, 1):
 			try:
 				print("set %d" % cnt)
 				cnt+=1
-				rgb_controller_1.set_led_color(0x00, r=i, g=0, b=0xFF-i)
-				rgb_controller_1.set_led_color(0x01, r=0, g=i, b=0xFF-i)
-				rgb_controller_1.set_led_color(0x02, r=0xFF, g=0, b=i)
-				rgb_controller_1.set_led_color(0x03, r=0xFF-i, g=i, b=0)
-				rgb_controller_1.update_color()
+				Set1.get_led(0).set_color(r=i, b=0xFF-i)
+				Set1.get_led(1).set_color(g=i, b=0xFF-i)
+				Set1.get_led(2).set_color(r=0xFF, b=i)
+				Set1.get_led(3).set_color(r=0xFF-i, g=i, b=127)
+				Controller1.update_color()
 				if not (cnt % 50):
-					rgb_controller_1.update_limits()
+					Controller1.update_limits()
 				time.sleep(0.01)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -138,8 +181,6 @@ if __name__ == "__main__":
 				print(exc_type, fname, exc_tb.tb_lineno)
 		print(" ")
 
-	brightness_test(rgb_controller_1)
-	
 	read_result = read(0x00, 32)
 	print("read %d bytes" % len(read_result))
 	i = 0
