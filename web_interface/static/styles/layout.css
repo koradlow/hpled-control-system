@@ -1,0 +1,64 @@
+/* This css file defines the basic layout for a the web-app style
+ * website. 
+ * 
+ * To use it pack the website content into one div with the id #container,
+ * define three divs within the container and make each a member of
+ * the row class. 
+ * Add the header class to the first, the body class to the second and
+ * the footer class to the third div
+ * 
+ * Do not add style related definitions to this file, they belong into 
+ * the style.css file */
+ 
+body { 
+	margin: 0;
+}
+
+.row, .col { 
+	overflow: hidden; 
+	position: absolute; 
+}
+.row { padding: 0px 25px; left: 0; right: 0; }
+.col { top: 0; bottom: 0; }
+.scroll-x { overflow-x: auto; }
+.scroll-y { overflow-y: auto; }
+
+.header.row {
+	height: 60px;
+	top: 0;
+}
+.body.row {
+	top: 60px;
+	bottom: 40px;
+	padding-top: 15px;
+}
+
+.footer.row {
+	height: 40px;
+	bottom: 0;
+}
+
+.navigation img,
+.navigation ul{
+	float: left;
+}
+
+.navigation img {
+	height: 48px;
+	padding-right: 10px;
+}
+
+.navigation {
+	position: absolute;
+	bottom: 2px;
+}
+
+.bottom_menu {
+	position: absolute;
+	top: 10px;
+	height: 20px;
+}
+
+#container {
+	padding: 0px 25px;
+}

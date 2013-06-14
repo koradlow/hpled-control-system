@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html lang="en">
+<html>
+	<head>
+		<!-- load css style for the website -->
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/layout.css') }}">
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/ics.css') }}">
+		<!-- wrapped element class for debugging purposes -->
+		
+		<style type="text/css">
+		.wrappedElement {
+				border: 1px solid red;
+				background-color: pink;
+			}
+		</style>
+		
+		<!-- load jQuery library directly from google for performance reasons -->
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" ></script>
+		
+		<!-- define a global variable with the script root, this has to be performed
+		in the template file to work properly -->
+		<script type="text/javascript">
+			$(function(){
+				// defining the URL for AJAX requests
+				SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+			});
+		</script>
+		
+		<!-- load the notification widget script and style files -->
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/ntfy_widget.css') }}">
+		<script src="{{ url_for('static', filename='scripts/main_page.js') }}"></script>
+		
+		<!-- add the notification widget to the site -->
+		<script type="text/javascript">
+			/*
+			$(document).ready(function() {
+				new NfyWidget($('#notify_widget'));
+			});
+			*/
+		</script>
+		
+		<!-- define the browser bar icon for the website -->
+		<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+		<title>RGB-Ctrl Base Design</title>
+		
+	</head>
+	<body class="light">
+		<!-- this container element is used to display dynamic notifications -->
+		<div id='notify_widget'></div>
+		<section id="Header">
+			<div id="container">
+				<div class="header row dark">
+					<!-- navigation goes here-->
+					<div class="navigation">
+						<img class="logo"src="{{ url_for('static', filename='images/ctrl_icon_128.png') }}" title="app icon">
+						<ul class="tabs">
+							<li><a href="#" class="current">Status</a></li>
+							<li><a href="#">Setup</a></li>
+							<li><a href="#">Notifications</a></li>
+						</ul>
+					</div>
+				</div>
+			</section>
+			
+			<section id="Content">
+				<div class="body row scroll-y light">
+					Body
+				</div>
+			{% block content %} {% endblock %}
+			</section>
+			
+			<div class="footer row dark">
+				<div class="bottom_menu">
+					<a>© ELCitron, EMECS 2013</a>
+				</div>
+			</div>
+		</div>
+		
+		<div id='templates'>
+			<div class='template notification'>
+				<button class='removeButton' type='button' title='remove'>X</button>
+				<span class='notification_text'></span>
+			</div>
+		</div>
+	</body>
+</html>
