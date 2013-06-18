@@ -200,7 +200,7 @@ class RgbCoordinator(object):
 	def get_controller(self, address):
 		if address not in self.controllers:
 			raise HttpError('No controller with given address', 404)
-		return self.controller[address].to_dict()
+		return self.controllers[address].to_dict()
 
 	def update_controller(self, controller_json):
 		verify_rgb_controller_json(controller_json)
@@ -215,10 +215,11 @@ class RgbCoordinator(object):
 		# TODO: should it be possible to change color values and set information
 		# via the controller API? Only Leds that are not part of a set ?
 		# update the led information
-		for led_json in controller_json['leds']:
-			verify_rgb_led_json(led_json)
-			if 'color' in led_json:
-				update_led_color(led_json)
+		if 'leds' in controller_json:
+			for led_json in controller_json['leds']:
+				verify_rgb_led_json(led_json)
+				if 'color' in led_json:
+					update_led_color(led_json)
 			
 		return controller.to_dict()
 
@@ -240,15 +241,15 @@ class RgbCoordinator(object):
 				raise HttpError('Name already exists', 409)
 
 		# create the new led_set and register the leds
-		led_set = RgbSet(led_set_json['name'])
+		led_set = RgbLedSet(led_set_json['name'])
 		for led_json in led_set_json['leds']:
 			led = self.identify_led(led_json)
 			led_set.add_led(led)
 			if 'color' in led_json:
 				update_led_color(led_json, led)
-		self.led_sets[led_set_json.name] = led_set
+		self.led_sets[led_set.name] = led_set
 		
-		return self.get_led_set(led_set_json.name)
+		return self.get_led_set(led_set.name)
 	
 	def update_led_set(self, led_set_json):
 		# check if a led_set with the given name exists
@@ -262,7 +263,7 @@ class RgbCoordinator(object):
 		for led_json in led_set_json['leds']:
 			led = self.identify_led(led_json)
 			tmp_led_list.append(led)
-			if led not in led_set:
+			if led not in led_set.leds:
 				led_set.add_led(led)
 			if 'color' in led_json:
 				update_led_color(led_json, led)
@@ -270,17 +271,18 @@ class RgbCoordinator(object):
 		# check if leds were removed from the set
 		for led in set(led_set.leds).difference(tmp_led_list):
 			led_set.remove_led(led)
+		
+		return led_set.to_dict()
 	
-	def remove_led_set(self, led_set_json):
+	def remove_led_set(self, led_set_name):
 		# check if a led_set with the given name exists
-		verify_rgb_led_set_json(led_set_json)
-		if led_set_json['name'] not in self.led_sets:
+		if led_set_name not in self.led_sets:
 				raise HttpError('No led-set with given name exists', 404)
 		
-		led_set = self.led_sets[led_set_json['name']]
+		led_set = self.led_sets[led_set_name]
 		for led in led_set.leds:
 			led.set_name = 'none'
-		del self.led_sets[led_set_json['name']]
+		del self.led_sets[led_set_name]
 
 	# update values of led instance
 	def update_led_color(self, led_json, led = None):
@@ -291,7 +293,7 @@ class RgbCoordinator(object):
 
 	# identify the led instance belonging to the json representation
 	def identify_led(self, led_json):
-		verify_RgbLed_json(led_json)
+		verify_rgb_led_json(led_json)
 		address = int(led_json['controller'])
 		if address not in self.controllers:
 			raise HttpError('No controller with given address', 404)

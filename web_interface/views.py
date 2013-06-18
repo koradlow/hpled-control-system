@@ -60,7 +60,7 @@ def add_led_set_uri(led_set):
 	new_led_set = {}
 	for key in led_set:
 		if key == 'name':
-			new_led_set['uri'] = url_for('set_api', led_set_name = set['name'],
+			new_led_set['uri'] = url_for('set_api', led_set_name = led_set['name'],
 			_external = True)
 		new_led_set[key] = led_set[key]
 	return new_led_set
@@ -81,7 +81,7 @@ class ControllerAPI(MethodView):
 		else:
 			try:
 				controller = self.coordinator.get_controller(controller_address)
-				return jsonify(controller)
+				return jsonify(add_controller_uri(controller))
 			except HttpError as e:
 				abort(e.error_code)
 
@@ -90,6 +90,7 @@ class ControllerAPI(MethodView):
 			self.coordinator.update_controller(request.get_json())
 			return jsonify(self.coordinator.get_controller(controller_address))
 		except HttpError as e:
+			print(e)
 			abort(e.error_code)
 
 
@@ -106,34 +107,52 @@ class LedSetAPI(MethodView):
 	def __init__(self):
 		global coordinator
 		self.coordinator = coordinator
-		super(SetAPI, self).__init__()
+		super(LedSetAPI, self).__init__()
 
 	def get(self, led_set_name):
 		if led_set_name is None:
 			led_sets = []
 			for led_set in self.coordinator.get_led_sets():
-				sets.append(add_led_set_uri(led_set))
+				led_sets.append(add_led_set_uri(led_set))
 			return jsonify( {'led_sets' : led_sets} )
 		else:
 			try:
-				return jsonify( self.coordinator.get_set(led_set_name) ) 
+				led_set = self.coordinator.get_led_set(led_set_name)
+				return jsonify( add_led_set_uri(led_set) ) 
 			except HttpError as e:
 				abort(e.error_code)
 	
 	def post(self, led_set_name):
 		try:
 			led_set_json = request.get_json()
-			new_set = self.coordinator.add_set(led_set_json)
-			return jsonify( new_set )
+			new_led_set = self.coordinator.add_led_set(led_set_json)
+			return jsonify( add_led_set_uri(new_led_set) )
+		except HttpError as e:
+			print(e)
+			abort(e.error_code)
+	
+	def put(self, led_set_name):
+		try:
+			led_set_json = request.get_json()
+			led_set = self.coordinator.update_led_set(led_set_json)
+			return jsonify( add_led_set_uri(led_set) )
+		except HttpError as e:
+			print(e)
+			abort(e.error_code)
+		
+	def delete(self, led_set_name):
+		try:
+			self.coordinator.remove_led_set(led_set_name)
+			return make_response(jsonify( { "status":"successfully removed led set"} ), 204)
 		except HttpError as e:
 			print(e)
 			abort(e.error_code)
 
 ''' Register the routes for the RESTful Set API '''
 led_set_view = LedSetAPI.as_view('set_api')
-app.add_url_rule('/set', defaults = {'led_set_name': None},
+app.add_url_rule('/led_set', defaults = {'led_set_name': None},
 		view_func=led_set_view, methods=['GET', 'POST'])
-app.add_url_rule('/set/<led_set_name>', view_func=led_set_view, methods=['GET',])
+app.add_url_rule('/led_set/<led_set_name>', view_func=led_set_view, methods=['GET','PUT', 'DELETE'])
 
 
 def launch_gevent_server(backend):
