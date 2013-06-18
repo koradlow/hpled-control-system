@@ -23,7 +23,7 @@ from i2c_mock import HttpError
 @app.route('/index')
 @app.route('/')
 def render_website():
-	return render_template('base_design.html')
+	return render_template('mobile_ui.html')
 
 
 @app.errorhandler(400)
@@ -77,7 +77,7 @@ class ControllerAPI(MethodView):
 			controllers = []
 			for controller in self.coordinator.get_controllers():
 				controllers.append(add_controller_uri(controller))
-			return jsonify( {'controllers' : controllers} )
+			return jsonify( {'controller': controllers} )
 		else:
 			try:
 				controller = self.coordinator.get_controller(controller_address)
