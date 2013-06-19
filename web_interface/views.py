@@ -114,7 +114,7 @@ class LedSetAPI(MethodView):
 			led_sets = []
 			for led_set in self.coordinator.get_led_sets():
 				led_sets.append(add_led_set_uri(led_set))
-			return jsonify( {'led_sets' : led_sets} )
+			return jsonify( {'led_set' : led_sets} )
 		else:
 			try:
 				led_set = self.coordinator.get_led_set(led_set_name)
