@@ -42,24 +42,13 @@
 		</div><!-- /header -->
 
 		<div data-role="content">
+			<div data-role="collapsible-set" class="controller_list">
+				<!-- list of controllers is embedded here dynamically -->
+			</div>
 			<p>I'm first in the source order so I'm shown as the page.</p>
 			<p>View internal page called <a href="#status">status</a></p>
 		</div><!-- /content -->
 		
-		<div data-role="panel" data-display="reveal" data-position="left" id="menu_panel">
-			<ul data-role="listview" data-theme="d" data-divider-theme="d" class="nav-search">
-				<li data-role="list-divider">Sections</li>
-				<li>
-					<a href="#home">Home</a>
-				</li>
-				<li>
-					<a href="#status">Status</a>
-				</li>
-				<li data-icon="delete" >
-					<a href="#" data-rel="close">Close menu</a>
-				</li>
-			</ul>
-		</div><!-- /panel -->
 	</div><!-- /page -->
 
 	<!-- Start of second page -->
@@ -75,20 +64,6 @@
 			<p><a href="#home">Back to home</a></p>
 		</div><!-- /content -->
 		
-		<div data-role="panel" data-display="reveal" data-position="left" id="menu_panel">
-			<ul data-role="listview" data-theme="d" data-divider-theme="d" class="nav-search">
-				<li data-role="list-divider">Sections</li>
-				<li>
-					<a href="#home">Home</a>
-				</li>
-				<li>
-					<a href="#status">Status</a>
-				</li>
-				<li data-icon="delete" >
-					<a href="#" data-rel="close">Close menu</a>
-				</li>
-			</ul>
-		</div><!-- /panel -->
 	</div><!-- /page -->
 
 	<!-- Enable Panel menu access via Swipe gestures -->
