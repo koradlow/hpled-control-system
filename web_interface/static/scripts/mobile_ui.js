@@ -37,17 +37,45 @@ $(document).on('click', '#test_button', function(q) {
 	console.log(data.controller[0].name);
 });
 
-/* Behavior of "Home" page */
+/* Behavior of "Controller Details" page */
 $(document).on("pagebeforeshow", "#contr_details", function(event) {
-	var json = $('#controller_list .controller').data('json');
 	var data_id = $('#controller_list .controller').data('data-id');
-	console.log(json.controller[data_id].name);
+	if (data_id) {
+		var json = $('#controller_list .controller').data('json').controller[data_id];
+		$('#contr_details #contr_name').val(json.name);
+		$('#contr_details #contr_brightness').val(json.brightness).slider("refresh");
+		for (var i = 0; i < json.leds.length; i++) {
+			var led_div = $('#led'+i);
+			$('#led'+i+'_limit').val(json.leds[i].current_limit).slider("refresh");
+			$('#led'+i+' p').first().text('Registered to: '+json.leds[i].led_set);
+			var rgb_color = "rgb("
+				+json.leds[i].color.r + ','
+				+json.leds[i].color.g1 + ','
+				+json.leds[i].color.b + ')';
+			console.log(rgb_color);
+			$('#led'+i+' .circle').css('background-color', rgb_color);
+		}
+	} else {
+		$('#contr_details #contr_name').val(' ');
+	}
+	
+});
+
+$(document).on("click", "#contr_save_button", function(event) {
+	var data_id = $('#controller_list .controller').data('data-id');
+	if (data_id) {
+		var json = $('#controller_list .controller').data('json').controller[data_id];
+		
+		json.name = $('#contr_details #contr_name').val();
+		json.brightness = $('#contr_details #contr_brightness').val();
+		putController(json);
+	}
 });
 
 /* Behavior of "Status" page */
 $(document).on("pagebeforeshow", "#status", function(event) {
-	requestControllers(addControllersToList);
-	requestLedSets(addLedSetsToList);
+	getControllers(addControllersToList);
+	getLedSets(addLedSetsToList);
 });
 
 $(document).on('click', '#controller_list li', function(q) {
@@ -56,6 +84,12 @@ $(document).on('click', '#controller_list li', function(q) {
 	$('#controller_list .controller').data({'data-id': data_id});
 });
 
+$(document).on('click', '#load_button', function(q) {
+	data = $('#controller_list .controller').data('json');
+	console.log(data.controller[0].name);
+});
+
+/* Helper functions */
 function addControllersToList(data) {
 		// Remove existing controllers in the list
 		$('#controller_list')
@@ -98,20 +132,21 @@ function addLedSetsToList(data) {
 		$('#led_set_list .led_set').data({'json': data});
 }
 
-$(document).on('click', '#load_button', function(q) {
-	data = $('#controller_list .controller').data('json');
-	console.log(data.controller[0].name);
-});
-
-
-function loadController(q) {
-	$('#controller_list').listview( "refresh" );
-};
-
 
 /* Interaction with REST API */
-
-function requestControllers(handleDataFunction) {
+function putController(controllerJson) {
+	$.ajax({
+		type: "PUT",
+		url: controllerJson.uri,
+		data: JSON.stringify(controllerJson),
+		contentType: "application/json",
+		sucess: function(data) {
+			console.log('updated');
+		}
+	});
+}
+ 
+function getControllers(handleDataFunction) {
 	/* Request list of controllers */
 	$.ajax({
 		type: "GET",
@@ -124,8 +159,8 @@ function requestControllers(handleDataFunction) {
 	});
 }
 
-function requestLedSets(handleDataFunction) {
-	/* Request list of controllers */
+function getLedSets(handleDataFunction) {
+	/* Request list of led sets */
 	$.ajax({
 		type: "GET",
 		url: "http://localhost:5000/led_set",

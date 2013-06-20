@@ -87,12 +87,12 @@ class RgbLed(object):
 	def __neq__(self, other):
 		return not self == other
 
-	def set_color(self, **kwargs):
-		r = kwargs.get('r', None)
-		g = kwargs.get('g', None)
-		g1 = kwargs.get('g1', None)
-		g2 = kwargs.get('g2', None)
-		b = kwargs.get('b', None)
+	def set_color(self, rgb_color):
+		r = rgb_color.get('r', None)
+		g = rgb_color.get('g', None)
+		g1 = rgb_color.get('g1', None)
+		g2 = rgb_color.get('g2', None)
+		b = rgb_color.get('b', None)
 
 		if r is not None: self.r = r
 		if g is not None: self.g1 = self.g2 = g
@@ -181,6 +181,13 @@ class RgbCoordinator(object):
 		self.controllers = {}
 		self.led_sets = {}
 		self.create_mock_controllers()
+		self.random_colors()
+
+	def random_colors(self):
+		for controller in self.controllers.values():
+			for led in controller.leds:
+				color = dict(r=randint(0, 255), g=randint(0, 255), b=randint(0,255))
+				led.set_color(color)
 
 	def scan_i2c_bus(self):
 		'''
@@ -219,7 +226,7 @@ class RgbCoordinator(object):
 			for led_json in controller_json['leds']:
 				verify_rgb_led_json(led_json)
 				if 'color' in led_json:
-					update_led_color(led_json)
+					self.update_led_color(led_json)
 			
 		return controller.to_dict()
 
@@ -246,7 +253,7 @@ class RgbCoordinator(object):
 			led = self.identify_led(led_json)
 			led_set.add_led(led)
 			if 'color' in led_json:
-				update_led_color(led_json, led)
+				self.update_led_color(led_json, led)
 		self.led_sets[led_set.name] = led_set
 		
 		return self.get_led_set(led_set.name)
@@ -266,7 +273,7 @@ class RgbCoordinator(object):
 			if led not in led_set.leds:
 				led_set.add_led(led)
 			if 'color' in led_json:
-				update_led_color(led_json, led)
+				self.update_led_color(led_json, led)
 		
 		# check if leds were removed from the set
 		for led in set(led_set.leds).difference(tmp_led_list):
