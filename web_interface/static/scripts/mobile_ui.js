@@ -85,11 +85,9 @@ $(document).on("pagebeforeshow", "#contr_details", function(event) {
 					preferredFormat: "rgb",
 					hide: function(color) {
 						$(this).css('background-color', color.toRgbString());
-					},
-					beforeShow: function() {
-						$(this).spectrum("set", $(this).css('background-color'));
 					}
 				});
+			$('#led'+i+' .circle').spectrum("set", rgb_color);
 		}
 	} else {
 		$('#contr_details #contr_name').val(' ');
@@ -101,9 +99,16 @@ $(document).on("click", "#contr_save_button", function(event) {
 	var data_id = $('#controller_list .controller').data('data-id');
 	if (data_id) {
 		var json = $('#controller_list .controller').data('json').controller[data_id];
-		
 		json.name = $('#contr_details #contr_name').val();
 		json.brightness = $('#contr_details #contr_brightness').val();
+		for (var i = 0; i < json.led_cnt; i++) {
+			json.leds[i].current_limit = $('#led'+i+'_limit').val();
+			var color = $('#led'+i+' .circle').spectrum("get").toRgb();
+			json.leds[i].color.r = color.r;
+			json.leds[i].color.g1 = color.g;
+			json.leds[i].color.g2 = color.g;
+			json.leds[i].color.b = color.b;
+		} 
 		putController(json);
 	}
 });
