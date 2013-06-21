@@ -67,18 +67,16 @@
 
 		<div data-role="content" >
 			<h3>Overview over all controllers connected to the system</h3>
-			<ul data-role="listview" id="controller_list" data-theme="d" data-divider-theme="d">
+			<ul data-role="listview" id="controller_list" data-inset="true" data-theme="d" data-divider-theme="d">
 				<!-- list of controllers is embedded here dynamically -->
 			</ul>
 			<hr>
 			<h3>Overview over all defined LED sets</h3>
-			<ul data-role="listview" id="led_set_list" data-theme="d" data-divider-theme="d">
+			<ul data-role="listview" id="led_set_list" data-inset="true" data-theme="d" data-divider-theme="d">
 				<!-- list of led set's is embedded here dynamically -->
 			</ul>
 			<hr>
-			<form>
-				<input value="New LED Set" type="button" id="load_button">
-			</form>
+			<a href='#new_led_set' data-rel="dialog" data-role='button' value="New LED Set" id="new_set_button">New LED Set</a>
 		</div><!-- /content -->
 		
 	</div><!-- /page -->
@@ -140,11 +138,36 @@
 							</div>
 					</div></div>
 				</div><!-- /grid-c -->
-				<input value="Save" type="button" id="contr_save_button">
+				<div data-role="controlgroup" data-type="horizontal">
+					<input value="Save" type="button" data-icon="home" id="contr_save_button">
+					<input value="Apply" type="button" data-icon="check" id="contr_apply_button">
+					<input value="Cancel" type="button" data-icon="delete" id="contr_cancel_button">
+				</div>
 			</form>
 		</div><!-- /content -->
 		
 	</div><!-- /page -->
+	
+	<!-- Start of "New LED Set" page -->
+	<div data-role="page" class="ui-responsive-panel" id="new_led_set">
+
+		<div data-role="header" data-position="fixed">
+			<h1>New LED Set</h1>
+			<a href="#menu_panel" data-icon="gear">Menu</a>
+		</div><!-- /header -->
+
+		<div data-role="content">
+			<div data-role="collapsible-set" class="led_list" data-theme="a" data-content-theme="d"
+				data-collapsed-icon="arrow-d" data-expanded-icon="arrow-u">
+				<!-- list of controllers is embedded here dynamically -->
+			</div>
+			<form>
+				<label for="new_set_name">LED Set Name:</label>
+				<input type="text" name="text-basic" id="new_set_name" value="">
+				<a href='#' data-role="button" class="save_button">Save</a>
+			</form>
+		</div><!-- /content -->
+	</page>
 	
 	<!-- Enable Panel menu access via Swipe gestures -->
 	<script type='text/javascript'>
