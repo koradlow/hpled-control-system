@@ -30,11 +30,34 @@ $(document).on('pagebeforecreate', '[data-role="page"]', function() {
 
 /* Behavior of "Home" page */
 $(document).on("pagebeforeshow", "#home", function(event) {
+	$('#color_picker').spectrum( {
+			clickoutFiresChange: true,
+			showInitial: true,
+			showButtons: false,
+			showInput: true,
+			preferredFormat: "rgb",
+		});
+	$('#color_test').spectrum( {
+			clickoutFiresChange: true,
+			showInitial: true,
+			showButtons: false,
+			showInput: true,
+			preferredFormat: "rgb",
+			hide: function(color) {
+				console.log(color.toRgbString());
+				$('#color_test').css('background-color', color.toRgbString());
+			}
+		});
 });
 
 $(document).on('click', '#test_button', function(q) {
-	data = $('#controller_list .controller').data();
-	console.log(data.controller[0].name);
+	$(this).spectrum( {
+			clickoutFiresChange: true,
+			showInitial: true,
+			showButtons: false,
+			showInput: true,
+			preferredFormat: "rgb",
+		});
 });
 
 /* Behavior of "Controller Details" page */
@@ -52,8 +75,21 @@ $(document).on("pagebeforeshow", "#contr_details", function(event) {
 				+json.leds[i].color.r + ','
 				+json.leds[i].color.g1 + ','
 				+json.leds[i].color.b + ')';
-			console.log(rgb_color);
-			$('#led'+i+' .circle').css('background-color', rgb_color);
+			$('#led'+i+' .circle')
+				.css('background-color', rgb_color)
+				.spectrum( {
+					clickoutFiresChange: true,
+					showInitial: true,
+					showButtons: false,
+					showInput: true,
+					preferredFormat: "rgb",
+					hide: function(color) {
+						$(this).css('background-color', color.toRgbString());
+					},
+					beforeShow: function() {
+						$(this).spectrum("set", $(this).css('background-color'));
+					}
+				});
 		}
 	} else {
 		$('#contr_details #contr_name').val(' ');
@@ -86,7 +122,11 @@ $(document).on('click', '#controller_list li', function(q) {
 
 $(document).on('click', '#load_button', function(q) {
 	data = $('#controller_list .controller').data('json');
-	console.log(data.controller[0].name);
+	if (data) {
+		console.log(data.controller[0].name);
+	}
+	var url = $(location).attr('host');
+	console.log(location.host);
 });
 
 /* Helper functions */
@@ -150,7 +190,7 @@ function getControllers(handleDataFunction) {
 	/* Request list of controllers */
 	$.ajax({
 		type: "GET",
-		url: "http://localhost:5000/controller",
+		url: "http://"+ location.host + "/controller",
 		data: null,
 		dataType: "json",
 		success: function(data) {
@@ -163,7 +203,7 @@ function getLedSets(handleDataFunction) {
 	/* Request list of led sets */
 	$.ajax({
 		type: "GET",
-		url: "http://localhost:5000/led_set",
+		url: "http://" + location.host + "/led_set",
 		data: null,
 		dataType: "json",
 		success: function(data) {

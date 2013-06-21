@@ -4,7 +4,10 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<!-- load css style for the website -->
 	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.3.1/jquery.mobile-1.3.1.min.css" />
-	<link rel="stylesheet" href="{{ url_for('static', filename='styles/mobile_ui.css') }}">
+	<link rel="stylesheet" media="screen" type="text/css" href="{{ url_for('static', filename='styles/spectrum.css') }}" />
+
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles/mobile_ui.css') }}" />
+	
 	<!-- wrapped element class for debugging purposes -->
 	<style type="text/css">
 	.wrappedElement {
@@ -19,7 +22,8 @@
 	<script src="http://code.jquery.com/mobile/1.3.1/jquery.mobile-1.3.1.min.js"></script>
 	<script src="{{ url_for('static', filename='scripts/json2.js') }}"></script>
 	<script src="{{ url_for('static', filename='scripts/mobile_ui.js') }}"></script>
-	
+	<script src="{{ url_for('static', filename='scripts/spectrum.js') }}"></script>
+                
 		<!-- define a global variable with the script root, this has to be performed
 	in the template file to work properly, and allow providing local static files -->
 	<script type="text/javascript">
@@ -44,6 +48,8 @@
 		</div><!-- /header -->
 
 		<div data-role="content">
+			<input type='text' id="color_picker" />
+			<div id='color_test' class='circle'></div>
 			<form>
 				<input value="test" type="button" id="test_button">
 			</form>
@@ -104,7 +110,6 @@
 							<label for="led0_limit">Current Limit:</label>
 							<input type="range" name="slider" id="led0_limit" value="215" min="215" max="251">
 							<div class="circle"></div>
-							<p>Color: <a href="#">Change</a></p>
 							</div>
 						</div></div>
 					<div class="ui-block-b"><div class="ui-body ui-body-a">
@@ -114,7 +119,6 @@
 							<label for="led1_limit">Current Limit:</label>
 							<input type="range" name="slider" id="led1_limit" value="215" min="215" max="251">
 							<div class="circle"></div>
-							<p>Color: <a href="#">Change</a></p>
 							</div>
 					</div></div>
 					<div class="ui-block-c"><div class="ui-body ui-body-a">
@@ -124,7 +128,6 @@
 							<label for="led2_limit">Current Limit:</label>
 							<input type="range" name="slider" id="led2_limit" value="215" min="215" max="251">
 							<div class="circle"></div>
-							<p>Color: <a href="#">Change</a></p>
 							</div>
 					</div></div>
 					<div class="ui-block-d"><div class="ui-body ui-body-a">
@@ -134,7 +137,6 @@
 							<label for="led3_limit">Current Limit:</label>
 							<input type="range" name="slider" id="led3_limit" value="215" min="215" max="251">
 							<div class="circle"></div>
-							<p>Color: <a href="#">Change</a></p>
 							</div>
 					</div></div>
 				</div><!-- /grid-c -->

@@ -14,11 +14,15 @@ import threading
 from pprint import pprint
 
 from web_interface import app
-from flask import request, Response, render_template, jsonify 
-from flask import make_response, url_for, abort
+from flask import request, Response, render_template
+from flask import make_response, url_for, abort, current_app
 from flask.views import MethodView
 
+from flask.ext.jsonpify import jsonify
+
 from i2c_mock import HttpError
+from crossdomain_decorator import crossdomain
+
 
 @app.route('/index')
 @app.route('/')
@@ -121,7 +125,7 @@ class LedSetAPI(MethodView):
 				return jsonify( add_led_set_uri(led_set) ) 
 			except HttpError as e:
 				abort(e.error_code)
-	
+
 	def post(self, led_set_name):
 		try:
 			led_set_json = request.get_json()
@@ -130,7 +134,7 @@ class LedSetAPI(MethodView):
 		except HttpError as e:
 			print(e)
 			abort(e.error_code)
-	
+
 	def put(self, led_set_name):
 		try:
 			led_set_json = request.get_json()
@@ -139,7 +143,7 @@ class LedSetAPI(MethodView):
 		except HttpError as e:
 			print(e)
 			abort(e.error_code)
-		
+
 	def delete(self, led_set_name):
 		try:
 			self.coordinator.remove_led_set(led_set_name)
@@ -170,7 +174,7 @@ def launch_gevent_server(backend):
 def launch_flask_server(backend):
 	global coordinator
 	coordinator = backend
-	app.run(debug = True)
+	app.run(host='0.0.0.0', debug = True)
 
 class Frontend(threading.Thread):
 	def __init__(self, backend):
