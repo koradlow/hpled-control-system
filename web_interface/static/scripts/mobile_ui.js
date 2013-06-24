@@ -1,3 +1,10 @@
+// Array Remove - By John Resig (MIT Licensed)
+Array.prototype.remove = function(from, to) {
+	var rest = this.slice((to || from) + 1 || this.length);
+	this.length = from < 0 ? this.length + from : from;
+	return this.push.apply(this, rest);
+};
+
 /* Add the left side panel menu */
 $(document).on('pagebeforecreate', '[data-role="page"]', function() {
 	var panel = $('<div>')
@@ -21,6 +28,16 @@ $(document).on('pagebeforecreate', '[data-role="page"]', function() {
 				.text("Status"))
 		.appendTo(menu);
 	$('<li>')
+		.attr({'data-role':'list-divider'})
+		.text('Actions')
+		.appendTo(menu);
+	$('<li>')
+		.append($('<a>')
+				.attr({'href':'#edit_led_set', 'data-rel':'dialog'})
+				.addClass('create_new_led_set')
+				.text("New LED-Set"))
+		.appendTo(menu);
+	$('<li>')
 		.attr({'data-icon':'delete'})
 		.append($('<a>')
 				.attr({'href':'#', 'data-rel':'close'})
@@ -28,33 +45,16 @@ $(document).on('pagebeforecreate', '[data-role="page"]', function() {
 		.appendTo(menu);
 });
 
-/* Behavior of "Home" page */
+/* ---------------------------------------------------------------------
+ * ########################### Home page ###############################
+ * ---------------------------------------------------------------------*/
 $(document).on("pagebeforeshow", "#home", function(event) {
-	$('#color_picker').spectrum( {
-			clickoutFiresChange: true,
-			showInitial: true,
-			showButtons: false,
-			showInput: true,
-			preferredFormat: "rgb",
-		});
-	$('#color_test').spectrum( {
-			clickoutFiresChange: true,
-			showInitial: true,
-			showButtons: false,
-			showInput: true,
-			preferredFormat: "rgb",
-			hide: function(color) {
-				console.log(color.toRgbString());
-				$('#color_test').css('background-color', color.toRgbString());
-			}
-		});
 });
 
-$(document).on('click', '#new_set_button', function(q) {
-	return true;
-});
 
-/* Behavior of "Controller Details" page */
+/* ---------------------------------------------------------------------
+ * ################### Controller Details page #########################
+ * ---------------------------------------------------------------------*/
 $(document).on("pagebeforeshow", "#contr_details", function(event) {
 	var data_id = $('#controller_list .controller').data('data-id');
 	if (data_id) {
@@ -108,11 +108,43 @@ $(document).on("click", "#contr_apply_button", function(event) {
 	updateControllerStatus();
 });
 
-/* Behavior of "Status" page */
+/* ---------------------------------------------------------------------
+ * ########################## Status page ##############################
+ * ---------------------------------------------------------------------*/
+// Request the current status of the controller via Ajax and display the 
+// elements when the call succeeds
 $(document).on("pagebeforeshow", "#status", function(event) {
 	getControllers(addControllersToStatusList);
 	getLedSets(addLedSetsToStatusList);
 });
+
+// Intercept clicks to the "new set button" to initialize a new
+// "led_set" object and attach it to the "#edit_led_set" page
+$(document).on('click', '.create_new_led_set', function(q) {
+	// create a new led-set object and append it to the page as data
+	var led_set = {
+			name : 'undef',
+			leds : Array()
+			};
+	$('#edit_led_set').data('led-set', led_set);
+	$('#edit_led_set [data-role=header] h1').text('New LED-Set');
+	return true;
+});
+
+// Attach the LED-Set object belonging to the list item to the
+// "#edit_led_set" page
+// (triggered on a click to the "LED-Set list" on the status page)
+$(document).on('click', '#led_set_list li', function(q) {
+	var led_set = $(this).data('led-set');
+	if (led_set) {
+		$('#edit_led_set').data('led-set', led_set);
+		$('#edit_led_set [data-role=header] h1').text('Edit LED-Set');
+	}	else {
+		alert("No data for this LED-Set available");
+		return false;
+	}
+});
+
 
 $(document).on('click', '#controller_list li', function(q) {
 	var data_id = $(this).attr('data-id');
@@ -120,17 +152,147 @@ $(document).on('click', '#controller_list li', function(q) {
 });
 
 
-/* Behavior of "New LED Set" page */
-$(document).on("pagebeforecreate", "#new_led_set", function(event) {
-	$('#new_led_set #new_set_name').val('');
+/* ---------------------------------------------------------------------
+ * ####################### Edit LED-Set page ###########################
+ * ---------------------------------------------------------------------*/
+$(document).on("pagebeforecreate", "#edit_led_set", function(event) {
+	console.log('triggered');
 	// Try to get the most recent state of the RGB Controller
-	var data = $('#controller_list .controller').data('json');
-	if (data) {
-		addLedsToNewLedSetList(data);
+	var controller_json = $('#controller_list .controller').data('json');
+	
+	if (controller_json) {
+		//addLedsToEditLedSetList(controller_json);
+	} else {
+		alert("No data available");
+		return false;
 	}
 });
 
-/* Helper functions */
+$(document).on("pagebeforeshow", "#edit_led_set", function(event) {
+	// Try to get the most recent state of the RGB Controller
+	var controller_json = $('#controller_list .controller').data('json');
+	
+	if (controller_json) {
+		addLedsToEditLedSetList(controller_json);
+	} else {
+		alert("No data available");
+		return false;
+	}
+	
+	var led_set = $('#edit_led_set').data('led-set');
+	
+	// set the value of the LED-Set Name field:
+	$('#edit_led_set #new_set_name').val(led_set.name);
+	
+	// remove old entries in LED-Set member list 
+	$('#edit_led_set #led_set_member_list')
+		.children()
+		.remove();
+	
+	// add existing members to the LED-Set member list
+	for(var idx = 0; idx < led_set.leds.length; idx++) {
+		var led = led_set.leds[idx];
+		$('#edit_led_set #led_set_member_list')
+			.append( 
+					$('<li>')
+					.attr('data-icon', 'minus')
+					.append($('<a>')
+						.attr('href','#')
+						.text('addr: ' + led.controller + ' (ch: ' + led.channel + ')'))
+					.data('led', led))
+			.listview('refresh');
+	}
+});
+
+// Add a led to the new led set 
+// (triggered when an entry of the controller led list is clicked)
+$(document).on('click', '#edit_led_set .led_list li', function(event) {
+	var led = $(this).data('led');
+	// led can only be added when the led doesn't belong to another set yet
+	// and a name was defined for the LED set
+	if (led.led_set == 'none') {
+		// add the led object to the LED-Set
+		var led_set = $('#edit_led_set').data('led-set');
+
+		led.led_set = led_set.name;
+		led_set.leds.push(led);
+
+		// add a new entry to the led-set led-list listview
+		var contr_name = $(this).parent().parent().parent().data('controller').name;
+		$('#edit_led_set #led_set_member_list')
+			.append( 
+					$('<li>')
+					.attr('data-icon', 'minus')
+					.append($('<a>')
+						.attr('href','#')
+						.text(contr_name + ' (ch: ' + led.channel + ')'))
+					.data('led', led))
+			.listview('refresh');
+	}
+});
+
+// Remove a led from the new led set
+// (triggered when an entry of the "led_set_member_list" is clicked)
+$(document).on('click', '#edit_led_set #led_set_member_list li', function(event) {
+	var led = $(this).data('led');
+	led.led_set = 'none';
+	var led_set = $('#edit_led_set').data('led-set');
+	
+	// find the according LED instance in the LED-Set and remove it
+	for(var idx = 0; idx < led_set.leds.length; idx++) {
+		if(led_set.leds[idx].controller == led.controller && 
+			led_set.leds[idx].channel == led.channel) {
+			led_set.leds.remove(idx);
+			break;
+		}
+	}
+	// remove the item from the listview
+	$(this).remove();
+	$('#edit_led_set #led_set_member_list').listview('refresh');
+});
+
+// Change the name of the led set
+// (triggered when the name input field is left)
+$(document).on('focusout', '#new_set_name', function() {
+	var led_set = $('#edit_led_set').data('led-set');
+	led_set.name = $(this).val();
+	
+	// update the name in all LEDs belonging to this set
+	for(var idx = 0; idx < led_set.leds.length; idx++) {
+		led_set.leds[idx].led_set = led_set.name;
+	}
+	$('#edit_led_set').data('led-set', led_set);
+});
+
+// Send the new/updated LED-Set to the server
+// (triggered when the "Save" button on the #edit_led_set page is clicked
+$(document).on('click', '#edit_led_set .save_button', function(event) {
+	var led_set = $('#edit_led_set').data('led-set');
+	if(led_set.name === 'undef') {
+		alert("Please enter a name for the LED-Set");
+		return false;
+	}
+	if(led_set.leds.length === 0) {
+		alert("Please add at least one LED to the LED-Set");
+		return false;
+	}
+	// use POST to create a new LED-Set if there is no URI for the object
+	// use PUT to update an existing resource
+	if(typeof led_set.uri === 'undefined') {
+		postLedSet(led_set);
+		$('.ui-dialog').dialog('close');
+	} else {
+		putLedSet(led_set);
+		$('.ui-dialog').dialog('close');
+	}
+	return true;
+}); 
+
+
+
+/* ---------------------------------------------------------------------
+ * ######################## Helper functions ###########################
+ * ---------------------------------------------------------------------*/
 function updateControllerStatus() {
 	var data_id = $('#controller_list .controller').data('data-id');
 	if (data_id) {
@@ -149,27 +311,30 @@ function updateControllerStatus() {
 	}
 }
 
-function addLedsToNewLedSetList(data) {
-	var controllers = data.controller;
+function addLedsToEditLedSetList(controllerJson) {
+	var controllers = controllerJson.controller;
 		// Remove existing old entries
-		$('#new_led_set .led_list')
+		$('#collapsible_led_list')
 			.children()
 			.remove();
 		// Create one collapsible list for each controller
 		for (var i = 0; i < controllers.length; i++) {
+			var controller_ul = $('<ul>')
+				.attr( {'data-role':'listview', 'data-id':i})
 			var controller_item = $('<div>')
 				.attr( {'data-role':'collapsible'})
+				.data('controller', controllers[i])
 				.append( $('<h2>').text(controllers[i].name) );
 			
 			var led_list = $('<ul>')
-				.attr( {'data-role':'listview'})
+				.attr( {'data-role':'listview', 'data-id':i})
 				.appendTo(controller_item);
-			$('#new_led_set .led_list').append(controller_item)
-			
+			$('#collapsible_led_list').append(controller_item).trigger('create');
 			// Create one list entry per LED channel
 			for (var j = 0; j < controllers[i].leds.length; j++) {
 				var led_item = $('<li>')
 					.attr( {'data-icon':'plus'} )
+					.data( {'led' : controllers[i].leds[j]} )
 					.append( $('<h2>').text("Channel: "+controllers[i].leds[j].channel))
 					.append( $('<p>').text("Registered to: "+controllers[i].leds[j].led_set))
 					.appendTo(led_list);
@@ -180,8 +345,10 @@ function addLedsToNewLedSetList(data) {
 						.appendTo(led_item);
 					}
 				}
-		}
+			$(led_list).listview('refresh');
+		};
 }
+
 
 function addControllersToStatusList(data) {
 		// Remove existing controllers in the list
@@ -203,6 +370,7 @@ function addControllersToStatusList(data) {
 		$("#controller_list").append(list).listview("refresh");
 		// Store the json data in the controller list 
 		$('#controller_list .controller').data({'json': data});
+		
 }
 
 function addLedSetsToStatusList(data) {
@@ -214,19 +382,27 @@ function addLedSetsToStatusList(data) {
 			.attr({'data-role':'list-divider', 'class':'led_set'})
 			.text("LED Sets:");
 		$("#led_set_list").append(divider);
-		var list = "";
 		for (var i = 0; i < data.led_set.length; i++) {
-			list += '<li>';
-			list += data.led_set[i].name;
-			list += '</li>';
+			var led_set = $('<li>')
+				.append($('<a>')
+					.attr( {'href':'#edit_led_set', 'data-rel':'dialog'} )
+					.text(data.led_set[i].name)
+						.append($('<span>')
+							.addClass('ui-li-count')
+							.text(data.led_set[i].leds.length)))
+				.data('led-set', data.led_set[i])
+				.appendTo($('#led_set_list'));
 		}
-		$("#led_set_list").append(list).listview("refresh");
+		$('#led_set_list').listview('refresh');
+
 		// Store the json data in the  list 
 		$('#led_set_list .led_set').data({'json': data});
 }
 
 
-/* Interaction with REST API */
+/* ---------------------------------------------------------------------
+ * ####################### RESTApi interaction #########################
+ * ---------------------------------------------------------------------*/
 function putController(controllerJson) {
 	$.ajax({
 		type: "PUT",
@@ -234,7 +410,7 @@ function putController(controllerJson) {
 		data: JSON.stringify(controllerJson),
 		contentType: "application/json",
 		sucess: function(data) {
-			console.log('updated');
+			console.log('controller updated');
 		}
 	});
 }
@@ -261,6 +437,30 @@ function getLedSets(handleDataFunction) {
 		dataType: "json",
 		success: function(data) {
 			handleDataFunction(data);
+		}
+	});
+}
+
+function postLedSet(ledSetJson) {
+	$.ajax( {
+		type: "POST",
+		url: "http://"+ location.host + "/led_set",
+		data: JSON.stringify(ledSetJson),
+		contentType: "application/json",
+		sucess: function(data) {
+			console.log('LED-Set created');
+		}
+	});
+}
+
+function putLedSet(ledSetJson) {
+	$.ajax( {
+		type: "PUT",
+		url: ledSetJson.uri,
+		data: JSON.stringify(ledSetJson),
+		contentType: "application/json",
+		sucess: function(data) {
+			console.log('LED-Set edited');
 		}
 	});
 }

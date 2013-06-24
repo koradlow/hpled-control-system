@@ -278,6 +278,7 @@ class RgbCoordinator(object):
 		# check if leds were removed from the set
 		for led in set(led_set.leds).difference(tmp_led_list):
 			led_set.remove_led(led)
+			led.set_name = 'none'
 		
 		return led_set.to_dict()
 	

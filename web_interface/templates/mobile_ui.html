@@ -76,7 +76,7 @@
 				<!-- list of led set's is embedded here dynamically -->
 			</ul>
 			<hr>
-			<a href='#new_led_set' data-rel="dialog" data-role='button' value="New LED Set" id="new_set_button">New LED Set</a>
+			<a href='#edit_led_set' data-rel="dialog" data-role='button' class="create_new_led_set" value="New LED Set">New LED Set</a>
 		</div><!-- /content -->
 		
 	</div><!-- /page -->
@@ -149,23 +149,42 @@
 	</div><!-- /page -->
 	
 	<!-- Start of "New LED Set" page -->
-	<div data-role="page" class="ui-responsive-panel" id="new_led_set">
+	<div data-role="page" class="ui-responsive-panel" id="edit_led_set">
 
 		<div data-role="header" data-position="fixed">
-			<h1>New LED Set</h1>
+			<h1>Edit LED-Set</h1>
 			<a href="#menu_panel" data-icon="gear">Menu</a>
 		</div><!-- /header -->
 
 		<div data-role="content">
+			<form>
+				<label for="new_set_name">LED-Set Name:</label>
+				<input type="text" name="text-basic" id="new_set_name" value="">
+			</form>
+			<ul data-role="listview" id="led_set_member_list" data-inset="true" data-theme="d" data-divider-theme="d">
+				<li data-role="list-divider">LED-Set members:</li>
+				<!-- list leds is embedded here dynamically -->
+			</ul>
 			<div data-role="collapsible-set" class="led_list" data-theme="a" data-content-theme="d"
 				data-collapsed-icon="arrow-d" data-expanded-icon="arrow-u">
 				<!-- list of controllers is embedded here dynamically -->
+				<div id="collapsible_led_list"></div>
 			</div>
 			<form>
-				<label for="new_set_name">LED Set Name:</label>
-				<input type="text" name="text-basic" id="new_set_name" value="">
 				<a href='#' data-role="button" class="save_button">Save</a>
 			</form>
+		</div><!-- /content -->
+	</page>
+	
+	<!-- Start of "Test" page -->
+	<div data-role="page" class="ui-responsive-panel" id="test_page">
+
+		<div data-role="header" data-position="fixed">
+			<h1>Test Page</h1>
+			<a href="#menu_panel" data-icon="gear">Menu</a>
+		</div><!-- /header -->
+
+		<div data-role="content">
 		</div><!-- /content -->
 	</page>
 	
