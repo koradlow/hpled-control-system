@@ -5,6 +5,11 @@ Array.prototype.remove = function(from, to) {
 	return this.push.apply(this, rest);
 };
 
+
+
+/* ---------------------------------------------------------------------
+ * ########################### Menu Panel ###############################
+ * ---------------------------------------------------------------------*/
 /* Add the left side panel menu */
 $(document).on('pagebeforecreate', '[data-role="page"]', function() {
 	var panel = $('<div>')
@@ -70,68 +75,15 @@ $(document).on('click','#menu_panel li.reload ',function(event, ui){
 		}
 	);
 });
+
+
+
 /* ---------------------------------------------------------------------
  * ########################### Home page ###############################
  * ---------------------------------------------------------------------*/
 $(document).on("pagebeforeshow", "#home", function(event) {
 });
 
-
-/* ---------------------------------------------------------------------
- * ################### Controller Details page #########################
- * ---------------------------------------------------------------------*/
-$(document).on("pagebeforeshow", "#contr_details", function(event) {
-	var data_id = $('#controller_list .controller').data('data-id');
-	if (data_id) {
-		var json = $('#controller_list .controller').data('json').controller[data_id];
-		$('#contr_details #contr_name').val(json.name);
-		$('#contr_details #contr_brightness').val(json.brightness).slider("refresh");
-		for (var i = 0; i < json.leds.length; i++) {
-			var led_div = $('#led'+i);
-			$('#led'+i+'_limit').val(json.leds[i].current_limit).slider("refresh");
-			$('#led'+i+' p').first().text('Registered to: '+json.leds[i].led_set);
-			var rgb_color = "rgb("
-				+json.leds[i].color.r + ','
-				+json.leds[i].color.g1 + ','
-				+json.leds[i].color.b + ')';
-			$('#led'+i+' .circle')
-				.css('background-color', rgb_color)
-				.spectrum( {
-					clickoutFiresChange: true,
-					showInitial: true,
-					showButtons: false,
-					showInput: true,
-					preferredFormat: "rgb",
-					hide: function(color) {
-						$(this).css('background-color', color.toRgbString());
-					}
-				});
-			$('#led'+i+' .circle').spectrum("set", rgb_color);
-		}
-	} else {
-		$('#contr_details #contr_name').val(' ');
-	}
-	
-});
-
-
-// Close the controller details dialog, ignoring updated values
-$(document).on("click", "#contr_cancel_button", function(event) {
-	$('.ui-dialog').dialog('close');
-});
-
-// Get the values from the input elements, update the object representation,
-// update the state on the controller, and close the dialog
-$(document).on("click", "#contr_save_button", function(event) {
-	updateControllerStatus();
-	$('.ui-dialog').dialog('close');
-});
-
-// Get the values from the input elements, update the object representation,
-// update the state on the controller, and keep the dialog open
-$(document).on("click", "#contr_apply_button", function(event) {
-	updateControllerStatus();
-});
 
 
 /* ---------------------------------------------------------------------
@@ -184,11 +136,132 @@ $(document).on('click', '.edit_led_set', function(q) {
 	}
 });
 
-
+// Set the 'data-id' attribute to show the "Controller Details" page which
+// controller should be displayed
 $(document).on('click', '#controller_list li', function(q) {
-	var data_id = $(this).attr('data-id');
-	$('#controller_list .controller').data({'data-id': data_id});
+	var controller = $(this).data('controller');
+	$('#contr_details').data('controller', controller);
 });
+
+
+
+
+/* ---------------------------------------------------------------------
+ * ################### Controller Details page #########################
+ * ---------------------------------------------------------------------*/
+$(document).on("pagebeforeshow", "#contr_details", function(event) {
+	// check if the page contains the data of the controller object
+	if (!$(this).data('controller')) {
+		alert("No Controller Data found");
+		$.mobile.changePage("#status");
+		return;
+	}
+	// Get the state of the Controller that will be modified
+	var controller = $(this).data('controller');
+	
+	// Initialize the static fields
+	$(this).find('#contr_name').val(controller.name);
+	$(this).find('#contr_brightness')
+		.val(controller.brightness)
+		.slider('refresh');
+	
+	// Remove the old control blocks
+	$(this).find('div.ui-responsive').children().remove();
+	
+	// Insert a control block for each LED into a responsive grid
+	var grid = $(this).find('div.ui-responsive');
+	var ui_block_type = ['ui-block-a', 'ui-block-b']
+	for (var i=0; i < controller.leds.length; i++) {
+		// color string for this LED
+		var rgb_color = tinycolor(controller.leds[i].color);
+		
+		// colored button allowing to set the LED Color
+		var led_button = $('<div>')
+			.addClass('circle')
+			.css('background-color', rgb_color.toRgbString())
+				.spectrum( {
+					clickoutFiresChange: true,
+					showInitial: true,
+					showButtons: false,
+					showInput: true,
+					preferredFormat: "rgb",
+					hide: function(color) {
+						$(this).css('background-color', color.toRgbString());
+						var led = $(this).closest('div .led-status').data('led');
+						var controller = $('#contr_details').data('controller');
+						controller.leds[led.channel].color = color.toRgb();
+					}
+				} );
+		$(led_button).spectrum("set", rgb_color);
+		
+		// create & attach new grid-item, offering access to all parameters 
+		$('<div>')
+			.addClass(ui_block_type[i%2])
+			.append($('<div>')
+				.addClass('ui-body ui-body-a')
+				.append($('<div>')
+					.addClass('led-status')
+					.append($('<h3>').text('Channel ' + i))
+					.append($('<p>').text('Registered to: ' + controller.leds[i].led_set))
+					.append($('<label>')
+						.attr('for', 'contr_led'+i+'_lim')
+						.text('Current Limit'))
+					.append($('<input>')
+						.addClass('current_limit')
+						.attr( {'type':'range', 'name':'slider', 'id':'contr_led'+i+'_lim',
+										'value':controller.leds[i].current_limit, 'min':'215', 'max':'251'} )
+						.slider())
+					.append(led_button)
+					.data( {'led': controller.leds[i], 'id':i} ) ))
+			.appendTo($(grid));
+	}
+	
+	// Trigger "page create" event to apply jQuery mobilee markup enhancement
+	$(this).trigger('create');
+});
+
+// Update the name of the Controller
+// (triggered if the "Controller Name" textbox was selected and looses focus
+$(document).on('change', '#contr_name', function(event) {
+	var controller = $('#contr_details').data('controller');
+	controller.name = $(this).val();
+});
+
+// Update the current limit of LED, if it was changed 
+// (triggered if the "conr_ledx_lim" slider was moved)
+$(document).on('slidestop', '#contr_details .current_limit', function(event, ui) {
+	var controller = $('#contr_details').data('controller');
+	var id = $(this).closest('div .led-status').data('id');
+	controller.leds[id].current_limit = $(this).val();
+});
+
+//Update the brightness of the controller, if it was changed
+// (triggered if the "conr_ledx_lim" slider was moved)
+$(document).on('slidestop', '#contr_details #contr_brightness', function(event, ui) {
+	var controller = $('#contr_details').data('controller');
+	controller.brightness = $(this).val();
+});
+
+// Get the values from the input elements, update the object representation,
+// update the state on the controller, and close the dialog
+$(document).on("click", "#contr_save_button", function(event) {
+	var controller = $('#contr_details').data('controller');
+	putController(controller);
+	$('.ui-dialog').dialog('close');
+});
+// Get the values from the input elements, update the object representation,
+// update the state on the controller, and keep the dialog open
+$(document).on("click", "#contr_apply_button", function(event) {
+	var controller = $('#contr_details').data('controller');
+	putController(controller);
+});
+// Close the controller details dialog, ignoring updated values
+$(document).on("click", "#contr_cancel_button", function(event) {
+	$('.ui-dialog').dialog('close');
+});
+
+
+
 
 
 /* ---------------------------------------------------------------------
@@ -284,7 +357,7 @@ $(document).on('click', '#edit_led_set #led_set_member_list li', function(event)
 
 // Change the name of the led set
 // (triggered when the name input field is left)
-$(document).on('focusout', '#new_set_name', function() {
+$(document).on('change', '#new_set_name', function() {
 	var led_set = $('#edit_led_set').data('led-set');
 	led_set.name = $(this).val();
 	
@@ -328,6 +401,9 @@ $(document).on('click', '#edit_led_set #delete_led_set_button', function(event) 
 	}
 	$('.ui-dialog').dialog('close');
 });
+
+
+
 
 /* ---------------------------------------------------------------------
  * ###################### Control LED-Set page #########################
@@ -432,27 +508,12 @@ $(document).on('click', '#contr_led_cancel_button', function(event) {
 	return true;
 });
 
+
+
+
 /* ---------------------------------------------------------------------
  * ######################## Helper functions ###########################
  * ---------------------------------------------------------------------*/
-function updateControllerStatus() {
-	var data_id = $('#controller_list .controller').data('data-id');
-	if (data_id) {
-		var json = $('#controller_list .controller').data('json').controller[data_id];
-		json.name = $('#contr_details #contr_name').val();
-		json.brightness = $('#contr_details #contr_brightness').val();
-		for (var i = 0; i < json.led_cnt; i++) {
-			json.leds[i].current_limit = $('#led'+i+'_limit').val();
-			var color = $('#led'+i+' .circle').spectrum("get").toRgb();
-			json.leds[i].color.r = color.r;
-			json.leds[i].color.g1 = color.g;
-			json.leds[i].color.g2 = color.g;
-			json.leds[i].color.b = color.b;
-		} 
-		putController(json);
-	}
-}
-
 function addLedsToEditLedSetList(controllerJson) {
 	var controllers = controllerJson.controller;
 		// Remove existing old entries
@@ -500,22 +561,27 @@ function addControllersToStatusList(data) {
 		$('#controller_list')
 			.children()
 			.remove();
+		
+		// Add a header entry to signal the contents of the list
 		var divider = $('<li>')
 			.attr({'data-role':'list-divider', 'class':'controller'})
 			.text("Controllers:");
 		$("#controller_list").append(divider);
-		var list = "";
+		
+		// Create one list entry per controller
 		for (var i = 0; i < data.controller.length; i++) {
-			list += '<li data-id='+i+'>';
-			list += '<a href=#contr_details data-rel="dialog">'
-			list += data.controller[i].name;
-			list += ' (Address:' + data.controller[i].addr + ')';
-			list += '</a></li>';
+			var controller_item = $('<li>')
+					.data('controller', data.controller[i])
+					.append($('<a>')
+						.attr( {'href':'#contr_details', 'data-rel':'dialog'} )
+						.text(data.controller[i].name + ' (Address:' +
+									data.controller[i].addr + ')'))
+					.appendTo('#controller_list');
 		}
-		$("#controller_list").append(list).listview("refresh");
+		$('#controller_list').listview('refresh');
+
 		// Store the json data in the controller list 
 		$('#controller_list .controller').data({'json': data});
-		
 }
 
 function addLedSetsToPanelMenu() {
