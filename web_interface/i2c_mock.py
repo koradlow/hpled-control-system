@@ -103,6 +103,7 @@ class RgbLed(object):
 	def get_color(self):
 		return {
 			'r':self.r, 
+			'g':self.g1,
 			'g1':self.g1,
 			'g2':self.g2,
 			'b':self.b,

@@ -133,6 +133,7 @@ $(document).on("click", "#contr_apply_button", function(event) {
 	updateControllerStatus();
 });
 
+
 /* ---------------------------------------------------------------------
  * ########################## Status page ##############################
  * ---------------------------------------------------------------------*/
@@ -146,7 +147,6 @@ $(document).on("pagebeforeshow", "#status", function(event) {
 // Intercept clicks to the "new set button" to initialize a new
 // "led_set" object and attach it to the "#edit_led_set" page
 $(document).on('click', '.create_new_led_set', function(q) {
-	console.log('new-led-set');
 	// create a new led-set object and append it to the page as data
 	var led_set = {
 			name : 'undef',
@@ -156,6 +156,17 @@ $(document).on('click', '.create_new_led_set', function(q) {
 	$('#delete_led_set_button').attr('disabled', '');
 	$('#edit_led_set [data-role=header] h1').text('New LED-Set');
 	return true;
+});
+
+// Intercept clicks on "control LED-Set" list entries to append the correct
+// data to the page
+$(document).on('click', '.control_led_set', function(q) {
+	if ($(this).data('led-set')) {
+		var data = $(this).data('led-set');
+		$('#control_led_set').data('led-set', data);
+		$('#control_led_set [data-role=header] h1')
+			.text('Control '+ data.name);
+	}
 });
 
 // Attach the LED-Set object belonging to the list item to the
@@ -184,25 +195,14 @@ $(document).on('click', '#controller_list li', function(q) {
  * ####################### Edit LED-Set page ###########################
  * ---------------------------------------------------------------------*/
 $(document).on("pagebeforecreate", "#edit_led_set", function(event) {
-
-	// Try to get the most recent state of the RGB Controller
-	var controller_json = $('#controller_list .controller').data('json');
-	
-	if (controller_json) {
-		//addLedsToEditLedSetList(controller_json);
-	} else {
-		alert("No data available");
-		return false;
-	}
 });
 
 $(document).on("pagebeforeshow", "#edit_led_set", function(event) {
-	// Try to get the most recent state of the RGB Controller
-	var controller_json = $('#controller_list .controller').data('json');
-	
 	// Update the visual style of the delete button
 	$(this).find('#delete_led_set_button').button('refresh');
 	
+	// Try to get the most recent state of the RGB Controller
+	var controller_json = $('#controller_list .controller').data('json');
 	if (controller_json) {
 		addLedsToEditLedSetList(controller_json);
 	} else {
@@ -327,6 +327,109 @@ $(document).on('click', '#edit_led_set #delete_led_set_button', function(event) 
 		deleteLedSet(led_set);
 	}
 	$('.ui-dialog').dialog('close');
+});
+
+/* ---------------------------------------------------------------------
+ * ###################### Control LED-Set page #########################
+ * ---------------------------------------------------------------------*/
+$(document).on('pagebeforeshow', '#control_led_set', function(event) {
+	if(! ($(this).data('led-set'))) {
+		alert("No LED-Set Data found");
+		$.mobile.changePage("#status");
+		return;
+	}
+	// Get the state of the LED-Set that will be controlled
+	var led_set = $(this).data('led-set');
+	$(this).find('#led_set_name').val(led_set.name);
+	
+	// Remove the old control blocks
+	$(this).find('div.ui-responsive').children().remove();
+	
+	// Insert a control block for each LED into a responsive grid
+	var grid = $(this).find('div.ui-responsive');
+	var ui_block_type = ['ui-block-a', 'ui-block-b']
+	for (var i=0; i < led_set.leds.length; i++) {
+		// color string for this LED
+		var rgb_color = tinycolor(led_set.leds[i].color);
+		
+		// colored button allowing to set the LED Color
+		var led_button = $('<div>')
+			.addClass('circle')
+			.css('background-color', rgb_color.toRgbString())
+				.spectrum( {
+					clickoutFiresChange: true,
+					showInitial: true,
+					showButtons: false,
+					showInput: true,
+					preferredFormat: "rgb",
+					hide: function(color) {
+						$(this).css('background-color', color.toRgbString());
+						var led_set = $('#control_led_set').data('led-set');
+						var led_id = $(this).parent().data('id');
+						led_set.leds[led_id].color = color.toRgb();
+					}
+				} );
+		$(led_button).spectrum("set", rgb_color);
+		
+		// create & attach new grid-item, offering access to all parameters 
+		$('<div>')
+			.addClass(ui_block_type[i%2])
+			.append($('<div>')
+				.addClass('ui-body ui-body-a')
+				.append($('<div>')
+					.addClass('led-status')
+					.append($('<h3>').text('LED ' + i))
+					.append($('<p>').text('Controller: ' + led_set.leds[i].controller
+										+ ', Channel: ' + led_set.leds[i].channel))
+					.append($('<label>')
+						.attr('for', 'led'+i+'_lim')
+						.text('Current Limit'))
+					.append($('<input>')
+						.attr( {'type':'range', 'name':'slider', 'id':'led'+i+'_lim',
+										'value':led_set.leds[i].current_limit, 'min':'215', 'max':'251'} )
+						.slider())
+					.append(led_button)
+					.data( {'led': led_set.leds[i], 'id':i} ) ))
+			.appendTo($(grid));
+	}
+	
+	// Trigger "page create" event to apply jQuery mobilee markup enhancement
+	$(this).trigger('create');
+});
+
+// Update the name of the LED-Set
+// (triggered if the "LED-Set Name" textbox was selected and looses focus
+$(document).on('focuslost', '#led_set_name', function(event) {
+	var led_set = $('#control_led_set').data('led-set');
+	led_set.name = $(this).val();
+});
+
+// Update the current limit of LED, if it was changed 
+// (triggered if the "ledx_lim" slider was moved)
+$(document).on('slidestop', '#control_led_set [name*="slider"]', function(event, ui) {
+	var led_set = $('#control_led_set').data('led-set');
+	var id = $(this).closest('div .led-status').data('id');
+	led_set.leds[id].current_limit = $(this).val();
+});
+
+// Send the updated LED-Set to the controller, return to previous page
+// (triggered when the "Save" button on is clicked)
+$(document).on('click', '#contr_led_save_button', function(event) {
+	putLedSet($('#control_led_set').data('led-set'));
+	window.history.back();
+	return true;
+});
+// Send the updated LED-Set to the controller, stay on page
+// (triggered when the "Apply" button on is clicked)
+$(document).on('click', '#contr_led_apply_button', function(event) {
+	putLedSet(led_set);
+	return true;
+});
+// Discard the changes and return to previous page
+// (triggered when the "Cancel" button on is clicked)
+$(document).on('click', '#contr_led_cancel_button', function(event) {
+	window.history.back();
+	return true;
 });
 
 /* ---------------------------------------------------------------------
@@ -460,6 +563,7 @@ function addLedSetsToStatusList(data) {
 					.attr( {'href':'#edit_led_set', 'data-rel':'dialog'} )
 					.text('Edit LED-Set '+data.led_set[i].name))
 				.addClass('edit_led_set')
+				.addClass('control_led_set')
 				.data('led-set', data.led_set[i])
 				.appendTo($('#led_set_list'));
 		}
