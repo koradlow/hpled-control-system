@@ -39,24 +39,6 @@
 </head>
 
 <body>
-	<!-- Start of "Home" page -->
-	<div data-role="page" class="ui-responsive-panel" id="home">
-
-		<div data-role="header" data-position="fixed">
-			<h1>Home</h1>
-			<a href="#menu_panel" data-icon="gear">Menu</a>
-		</div><!-- /header -->
-
-		<div data-role="content">
-			<input type='text' id="color_picker" />
-			<div id='color_test' class='circle'></div>
-			<form>
-				<input value="test" type="button" id="test_button">
-			</form>
-		</div><!-- /content -->
-	
-	</div><!-- /page -->
-
 	<!-- Start of "Status" page -->
 	<div data-role="page" class="ui-responsive-panel" id="status">
 
@@ -72,13 +54,32 @@
 			</ul>
 			<hr>
 			<h3>Overview over all defined LED sets</h3>
-			<ul data-role="listview" id="led_set_list" data-inset="true" data-theme="d" data-divider-theme="d">
+			<ul data-role="listview" id="led_set_list" data-inset="true" data-theme="d" data-divider-theme="d" data-split-icon="gear">
 				<!-- list of led set's is embedded here dynamically -->
 			</ul>
 			<hr>
 			<a href='#edit_led_set' data-rel="dialog" data-role='button' class="create_new_led_set" value="New LED Set">New LED Set</a>
 		</div><!-- /content -->
 		
+	</div><!-- /page -->
+	
+	<!-- Start of "Home" page -->
+	<div data-role="page" class="ui-responsive-panel" id="home">
+
+		<div data-role="header" data-position="fixed">
+			<h1>Home</h1>
+			<a href="#menu_panel" data-icon="gear">Menu</a>
+		</div><!-- /header -->
+
+		<div data-role="content">
+			<input type='text' id="color_picker" />
+			<div id='color_test' class='circle'></div>
+			<form>
+				<a href='#control_led_set' data-role='button'>Control LED-Set</a>
+				<input value="test" type="button" id="test_button">
+			</form>
+		</div><!-- /content -->
+	
 	</div><!-- /page -->
 	
 	<!-- Start of "Controller Details" page -->
@@ -148,7 +149,7 @@
 		
 	</div><!-- /page -->
 	
-	<!-- Start of "New LED Set" page -->
+	<!-- Start of "Edit LED-Set" page -->
 	<div data-role="page" class="ui-responsive-panel" id="edit_led_set">
 
 		<div data-role="header" data-position="fixed">
@@ -172,22 +173,26 @@
 			</div>
 			<form>
 				<a href='#' data-role="button" class="save_button">Save</a>
+				<input type='button' id='delete_led_set_button' value='Delete LED-Set'>
 			</form>
 		</div><!-- /content -->
-	</page>
+	</div><!-- /page -->
 	
-	<!-- Start of "Test" page -->
-	<div data-role="page" class="ui-responsive-panel" id="test_page">
+	<!-- Start of "Control LED-Set" page -->
+	<div data-role="page" class="ui-responsive-panel" id="control_led_set">
 
 		<div data-role="header" data-position="fixed">
-			<h1>Test Page</h1>
+			<h1>Control Led Set</h1>
 			<a href="#menu_panel" data-icon="gear">Menu</a>
 		</div><!-- /header -->
 
 		<div data-role="content">
+			
 		</div><!-- /content -->
+	</div><!-- /page -->
 	</page>
 	
+
 	<!-- Enable Panel menu access via Swipe gestures -->
 	<script type='text/javascript'>
 		$(document).on('pageinit',function(){

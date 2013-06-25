@@ -138,7 +138,7 @@ class LedSetAPI(MethodView):
 	def put(self, led_set_name):
 		try:
 			led_set_json = request.get_json()
-			led_set = self.coordinator.update_led_set(led_set_json)
+			led_set = self.coordinator.update_led_set(led_set_json, led_set_name)
 			return jsonify( add_led_set_uri(led_set) )
 		except HttpError as e:
 			print(e)

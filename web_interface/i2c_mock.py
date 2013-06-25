@@ -258,14 +258,14 @@ class RgbCoordinator(object):
 		
 		return self.get_led_set(led_set.name)
 	
-	def update_led_set(self, led_set_json):
+	def update_led_set(self, led_set_json, led_set_name):
 		# check if a led_set with the given name exists
 		verify_rgb_led_set_json(led_set_json)
-		if led_set_json['name'] not in self.led_sets:
+		if led_set_name not in self.led_sets:
 				raise HttpError('No led-set with given name exists', 404)
 
 		# check if new leds were added to the set and update values of all leds
-		led_set = self.led_sets[led_set_json['name']]
+		led_set = self.led_sets[led_set_name]
 		tmp_led_list = []
 		for led_json in led_set_json['leds']:
 			led = self.identify_led(led_json)
@@ -280,6 +280,13 @@ class RgbCoordinator(object):
 			led_set.remove_led(led)
 			led.set_name = 'none'
 		
+		# check if the name of the LED-Set was changed
+		if (led_set_name != led_set_json['name']):
+			# remove the existing LED-Set from the dictionary,
+			del self.led_sets[led_set_name]
+			# modify the name and re-add the LED-Set to the dictionary
+			led_set.set_name(led_set_json['name'])
+			self.led_sets[led_set.name] = led_set
 		return led_set.to_dict()
 	
 	def remove_led_set(self, led_set_name):
@@ -288,8 +295,7 @@ class RgbCoordinator(object):
 				raise HttpError('No led-set with given name exists', 404)
 		
 		led_set = self.led_sets[led_set_name]
-		for led in led_set.leds:
-			led.set_name = 'none'
+		led_set.set_name('none')
 		del self.led_sets[led_set_name]
 
 	# update values of led instance
