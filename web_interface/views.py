@@ -20,8 +20,7 @@ from flask.views import MethodView
 
 from flask.ext.jsonpify import jsonify
 
-from i2c_mock import HttpError
-from crossdomain_decorator import crossdomain
+from i2c_raspberry import *
 
 
 @app.route('/index')

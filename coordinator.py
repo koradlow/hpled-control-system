@@ -1,15 +1,10 @@
 #!/usr/bin/python
-from gevent.queue import Queue
-
 import web_interface
+import i2c_raspberry
 
 if __name__ == '__main__':
-	com_queue = Queue()
-	for i in xrange (10, 17):
-		com_queue.put(i)
-	
 	# create seperate threads for front and backend
-	back = web_interface.RgbCoordinator()
+	back = i2c_raspberry.RgbCoordinator()
 	front = web_interface.Frontend(back)
 	front.start();
 	

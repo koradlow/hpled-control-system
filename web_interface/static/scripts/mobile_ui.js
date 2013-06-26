@@ -498,7 +498,7 @@ $(document).on('click', '#contr_led_save_button', function(event) {
 // Send the updated LED-Set to the controller, stay on page
 // (triggered when the "Apply" button on is clicked)
 $(document).on('click', '#contr_led_apply_button', function(event) {
-	putLedSet(led_set);
+	putLedSet($('#control_led_set').data('led-set'));
 	return true;
 });
 // Discard the changes and return to previous page
