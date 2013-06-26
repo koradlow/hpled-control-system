@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import quick2wire.i2c as i2c
+import i2c as i2c
 import decorator
 import time
 import sys, os
@@ -158,6 +158,7 @@ def brightness_test(controller):
 		controller.update_limits()
 		time.sleep(0.01)
 
+
 if __name__ == "__main__":
 	Controller1 = RgbController(I2C_SLAVE_ADDRESS)
 	Set1 = RgbSet("set1")
@@ -167,8 +168,11 @@ if __name__ == "__main__":
 	Set1.add_led(Controller1.get_led(3))
 
 	cnt = 0
-	Set1.get_led(2).set_current_limit(251)
-	Set1.get_led(0).set_current_limit(215)
+	Set1.get_led(0).set_current_limit(230)
+	Set1.get_led(1).set_current_limit(230)
+	Set1.get_led(2).set_current_limit(230)
+	Set1.get_led(3).set_current_limit(230)
+	
 	for n in range(0, 1):
 		for i in range(0, 0xFF, 1):
 			try:
@@ -192,8 +196,8 @@ if __name__ == "__main__":
 	print("read %d bytes" % len(read_result))
 	i = 0
 	for n in read_result:
-		print("%02d: %02x" %(i, n))
+		print("%02d: %s" %(i, n))
 		i = i+1
-		if not (i % 4):
+		if not (i % 5):
 			print(" ")
 	print(" ")

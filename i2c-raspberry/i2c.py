@@ -1,14 +1,14 @@
-
 import sys
 from contextlib import closing
 import posix
 from fcntl import ioctl
-from quick2wire.i2c_ctypes import *
+from i2c_ctypes import *
 from ctypes import create_string_buffer, sizeof, c_int, byref, pointer, addressof, string_at
-from quick2wire.board_revision import revision
+from board_revision import revision
 
-assert sys.version_info.major >= 3, __name__ + " is only supported on Python 3"
-
+""" this version has been ported from python3 to support python2.x,
+    use the official quickwire release if you need python3 support """
+assert sys.version_info.major < 3, __name__ + " is only supported on Python < 2.x"
 
 default_bus = 1 if revision() > 1 else 0
 
@@ -74,11 +74,10 @@ class I2CMaster(object):
         msg_count = len(msgs)
         msg_array = (i2c_msg*msg_count)(*msgs)
         ioctl_arg = i2c_rdwr_ioctl_data(msgs=msg_array, nmsgs=msg_count)
-        
         ioctl(self.fd, I2C_RDWR, ioctl_arg)
         
-        return [i2c_msg_to_bytes(m) for m in msgs if (m.flags & I2C_M_RD)]
-
+        data = [i2c_msg_to_bytearray(m) for m in msgs if (m.flags & I2C_M_RD)]
+        return data
 
 
 def reading(addr, n_bytes):
@@ -89,19 +88,20 @@ def reading_into(addr, buf):
     """An I2C I/O message that reads into an existing ctypes string buffer."""
     return _new_i2c_msg(addr, I2C_M_RD, buf)
 
-def writing_bytes(addr, *bytes):
+def writing_bytes(addr, *str):
     """An I2C I/O message that writes one or more bytes of data. 
     
     Each byte is passed as an argument to this function.
     """
-    return writing(addr, bytes)
+    buf = bytearray([i for i in str])
+    return writing(addr, buf)
 
 def writing(addr, byte_seq):
     """An I2C I/O message that writes one or more bytes of data.
     
     The bytes are passed to this function as a sequence.
     """
-    buf = bytes(byte_seq)
+    buf = str(byte_seq)
     return _new_i2c_msg(addr, 0, create_string_buffer(buf, len(buf)))
 
 
@@ -109,5 +109,5 @@ def _new_i2c_msg(addr, flags, buf):
     return i2c_msg(addr=addr, flags=flags, len=sizeof(buf), buf=buf)
 
 
-def i2c_msg_to_bytes(m):
-    return string_at(m.buf, m.len)
+def i2c_msg_to_bytearray(m):
+    return bytearray([char for char in string_at(m.buf, m.len)])
