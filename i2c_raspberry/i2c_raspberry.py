@@ -105,13 +105,27 @@ class RgbLed(object):
 		return {
 			'r':self.r, 
 			'g':self.g1,
-			'g1':self.g1,
 			'g2':self.g2,
 			'b':self.b,
 		}
- 
+
+# to make it easy to use the API, the interface accepts values in mA. These
+# values have to be transformed into the values expected by the LED-Driver board.
+# The led driver board expects decimal values between 0 and 255 that 
+# are used to set the value of a digital resistor (AD5204), which is used
+# to set the current limit 
+
+# Step 1: calculate the required resistor value for the current limit
+# Step 2: calculate the require digital resistor input value to drive
+# it to the resistor value 
 	def set_current_limit(self, current_limit):
-		self.current_limit = current_limit
+		# Step 1:
+		r_ext = interpolate_resistor_value(current_limit)
+		# Step 2:
+		# R_wa(D_x) = (256-D_x)/256 * R_ab + R_w => from digital input to Ohm
+		# D_x = (256 * (R_w+R_ab-R_wa)) / R_ab => from Ohm to digital input
+		d_x = int((256*(45+10000-r_ext))/10000)
+		self.current_limit = d_x
 		self.current_limit_update = True
 		
 	def to_dict(self):
@@ -123,6 +137,7 @@ class RgbLed(object):
 		led_dict['led_set'] = self.led_set
 		
 		return led_dict
+
 
 class RgbController(object):
 	def __init__(self, address, name, led_cnt = LED_CNT):
@@ -231,7 +246,7 @@ class RgbCoordinator(object):
 			for led in controller.leds:
 				color = dict(r=randint(0, 255), g=randint(0, 255), b=randint(0,255))
 				led.set_color(color)
-				led.set_current_limit(230)
+				led.set_current_limit(125)
 			controller.update()
 
 	def update_controllers(self):
@@ -394,6 +409,38 @@ def verify_rgb_led_set_json(led_set_json):
 		if key == 'leds':
 			for led_json in led_set_json['leds']:
 				verify_rgb_led_json(led_json)
+
+# interpolates the resistor value for the R_ext input of an LED driver IC.
+# R_ext limits the current output of the IC.
+# Values taken from STP04CM05 datasheet fig. 13
+def interpolate_resistor_value(i_led):
+	# define a lookup table (lut) with the values from the datasheet. 
+	# read as: (Output current, External Resistor value)
+	table = [ (50, 1550),
+			(80, 950),
+			(100, 800),
+			(150, 500),
+			(350, 220),
+			(400, 200),
+			(500, 180) ]
+	# return with min/max values if the requested current exceeds the range
+	# of the lut
+	if (i_led < table[0][0]):
+		return table[0][1]
+	elif(i_led > table[-1][0]):
+		return table[-1][1]
+
+	# current is in range of lut
+	for idx in range(len(table)-1):
+		# check the lut for the correct period
+		if (i_led >= table[idx][0] and i_led <= table[idx+1][0]):
+			# interpolate a linear function between the two points
+			delta_r_ext = (table[idx+1][1] - table[idx][1])
+			delta_i_out = (table[idx+1][0] - table[idx][0])
+			m = float(delta_r_ext) / delta_i_out
+			n = table[idx][1] - m * table[idx][0]
+			return int(m*i_led +n)
+
 
 class HttpError(Exception):
 	def __init__(self, message, error_code):
