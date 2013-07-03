@@ -108,25 +108,19 @@ class RgbLed(object):
 			'b':self.b,
 		}
 
-# to make it easy to use the API, the interface accepts values in mA. These
-# values have to be transformed into the values expected by the LED-Driver board.
-# The led driver board expects decimal values between 0 and 255 that 
-# are used to set the value of a digital resistor (AD5204), which is used
-# to set the current limit 
-
-# Step 1: calculate the required resistor value for the current limit
-# Step 2: calculate the require digital resistor input value to drive
-# it to the resistor value 
 	def set_current_limit(self, current_limit):
-		# Step 1:
-		r_ext = interpolate_resistor_value(current_limit)
-		# Step 2:
-		# R_wa(D_x) = (256-D_x)/256 * R_ab + R_w => from digital input to Ohm
-		# D_x = (256 * (R_w+R_ab-R_wa)) / R_ab => from Ohm to digital input
-		d_x = int((256*(45+10000-r_ext))/10000)
-		self.current_limit = d_x
+		self.current_limit = current_limit
 		self.current_limit_update = True
-		
+
+	# to make it easy to use the API, the interface uses values in mA. These
+	# values have to be converted into the values expected by the LED-Driver board.
+	# The led driver board expects decimal values between 0 and 255 that 
+	# are used to set the value of a digital resistor (AD5204), which is used
+	# to set the current limit 
+	def convert_current_limit(self):
+		r_ext = interpolate_resistor_value(self.current_limit)
+		return calculate_digital_resistor_input(r_ext)
+	
 	def to_dict(self):
 		led_dict = {}
 		led_dict['channel'] = self.channel
@@ -166,7 +160,7 @@ class RgbController(object):
 				self.i2c_buffer[idx*LED_CHANNELS+1] = int(led.g1)
 				self.i2c_buffer[idx*LED_CHANNELS+2] = int(led.g2)
 				self.i2c_buffer[idx*LED_CHANNELS+3] = int(led.b)
-				self.i2c_buffer[RX_CURRENT_LIMIT+idx] = int(led.current_limit)
+				self.i2c_buffer[RX_CURRENT_LIMIT+idx] = int(led.convert_current_limit())
 				if (led.current_limit_update):
 					self.i2c_buffer[RX_CURRENT_UPDATE] = 0x01
 					led.current_limit_update = False;
@@ -360,9 +354,9 @@ def verify_rgb_led_set_json(led_set_json):
 			for led_json in led_set_json['leds']:
 				verify_rgb_led_json(led_json)
 
-# interpolates the resistor value for the R_ext input of an LED driver IC.
+# interpolates the resistor value for the R_ext input of an LED driver IC
+# based on values taken from STP04CM05 datasheet fig. 13
 # R_ext limits the current output of the IC.
-# Values taken from STP04CM05 datasheet fig. 13
 def interpolate_resistor_value(i_led):
 	# define a lookup table (lut) with the values from the datasheet. 
 	# read as: (Output current, External Resistor value)
@@ -379,7 +373,6 @@ def interpolate_resistor_value(i_led):
 		return table[0][1]
 	elif(i_led > table[-1][0]):
 		return table[-1][1]
-
 	# current is in range of lut
 	for idx in range(len(table)-1):
 		# check the lut for the correct period
@@ -391,6 +384,14 @@ def interpolate_resistor_value(i_led):
 			n = table[idx][1] - m * table[idx][0]
 			return int(m*i_led +n)
 
+# the digital resistor has a range of 10kOhm divided into 256 discrete steps.
+# It is used to set the current limit of the LED driver IC
+# The formula for calculating the input value is derived from the datasheet
+def calculate_digital_resistor_input(r_ext):
+	# R_wa(D_x) = (256-D_x)/256 * R_ab + R_w => from digital input to Ohm
+	# D_x = (256 * (R_w+R_ab-R_wa)) / R_ab => from Ohm to digital input
+	d_x = int((256*(45+10000-r_ext))/10000)
+	return d_x
 
 class HttpError(Exception):
 	def __init__(self, message, error_code):

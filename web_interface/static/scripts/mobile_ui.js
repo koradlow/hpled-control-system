@@ -416,7 +416,9 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 	}
 	// Get the state of the LED-Set that will be controlled
 	var led_set = $(this).data('led-set');
+	$(this).find('#led_set_live_mode').val('off').slider('refresh');
 	$(this).find('#led_set_name').val(led_set.name);
+	$(this).data('live-mode', false);
 	
 	// Remove the old control blocks
 	$(this).find('div.ui-responsive').children().remove();
@@ -443,6 +445,9 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 						var led_set = $('#control_led_set').data('led-set');
 						var led_id = $(this).parent().data('id');
 						led_set.leds[led_id].color = color.toRgb();
+						if ($('#control_led_set').data('live-mode')) {
+							putLedSet(led_set);
+						}
 					}
 				} );
 		$(led_button).spectrum("set", rgb_color);
@@ -473,11 +478,24 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 	$(this).trigger('create');
 });
 
+// enable/disable the live update mode according to the switch position
+$(document).on('slidestop', '#led_set_live_mode', function(event, ui) {
+	if (this.value === 'on') {
+		$('#control_led_set').data('live-mode', true);
+	} else {
+		$('#control_led_set').data('live-mode', false);
+	}
+	
+});
+
 // Update the name of the LED-Set
 // (triggered if the "LED-Set Name" textbox was selected and looses focus
-$(document).on('focuslost', '#led_set_name', function(event) {
+$(document).on('change', '#led_set_name', function(event) {
 	var led_set = $('#control_led_set').data('led-set');
 	led_set.name = $(this).val();
+	if ($('#control_led_set').data('live-mode')) {
+		putLedSet(led_set);
+	}
 });
 
 // Update the current limit of LED, if it was changed 
@@ -485,7 +503,10 @@ $(document).on('focuslost', '#led_set_name', function(event) {
 $(document).on('slidestop', '#control_led_set [name*="slider"]', function(event, ui) {
 	var led_set = $('#control_led_set').data('led-set');
 	var id = $(this).closest('div .led-status').data('id');
-	led_set.leds[id].current_limit = $(this).val();
+	led_set.leds[id].current_limit = parseInt($(this).val());
+	if ($('#control_led_set').data('live-mode')) {
+		putLedSet(led_set);
+	}
 });
 
 // Send the updated LED-Set to the controller, return to previous page
@@ -651,7 +672,7 @@ function putController(controllerJson) {
 		url: controllerJson.uri,
 		data: JSON.stringify(controllerJson),
 		contentType: "application/json",
-		sucess: function(data) {
+		success: function(data, xml_request, options) {
 			console.log('controller updated');
 		}
 	});
@@ -664,7 +685,7 @@ function getControllers(handleDataFunction) {
 		url: "http://"+ location.host + "/controller",
 		data: null,
 		dataType: "json",
-		success: function(data) {
+		success: function(data, xml_request, options) {
 			handleDataFunction(data);
 		}
 	});
@@ -677,7 +698,7 @@ function getLedSets(handleDataFunction) {
 		url: "http://" + location.host + "/led_set",
 		data: null,
 		dataType: "json",
-		success: function(data) {
+		success: function(data, xml_request, options) {
 			handleDataFunction(data);
 		}
 	});
@@ -689,7 +710,7 @@ function postLedSet(ledSetJson) {
 		url: "http://"+ location.host + "/led_set",
 		data: JSON.stringify(ledSetJson),
 		contentType: "application/json",
-		sucess: function(data) {
+		success: function(data, xml_request, options) {
 			console.log('LED-Set created');
 		}
 	});
@@ -701,7 +722,8 @@ function putLedSet(ledSetJson) {
 		url: ledSetJson.uri,
 		data: JSON.stringify(ledSetJson),
 		contentType: "application/json",
-		sucess: function(data) {
+		success: function(data, xml_request, options) {
+			$('#control_led_set').data('led-set', data);
 			console.log('LED-Set edited');
 		}
 	});
@@ -712,7 +734,7 @@ function deleteLedSet(ledSetJson) {
 		type: "DELETE",
 		url: ledSetJson.uri,
 		data: null,
-		success: function(data) {
+		success: function(data, xml_request, options) {
 			console.log('LED-Set deleted');
 		}
 	});
