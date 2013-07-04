@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import decorator
 import time
-import sys, os
+import sys, os, io, json
 from random import randint
 from pprint import pprint
 
@@ -115,8 +115,8 @@ class RgbLed(object):
 	# to make it easy to use the API, the interface uses values in mA. These
 	# values have to be converted into the values expected by the LED-Driver board.
 	# The led driver board expects decimal values between 0 and 255 that 
-	# are used to set the value of a digital resistor (AD5204), which is used
-	# to set the current limit 
+	# are used to set the value of a digital resistor (AD5204) (0=10kOhm,255=45Ohm),
+	# which is used to set the current limit of the LED-Drivers
 	def convert_current_limit(self):
 		r_ext = interpolate_resistor_value(self.current_limit)
 		return calculate_digital_resistor_input(r_ext)
@@ -191,6 +191,7 @@ class RgbCoordinator(object):
 		self.led_sets = {}
 		self.create_mock_controllers()
 		self.random_colors()
+		self.restore_led_sets()
 
 	def random_colors(self):
 		for controller in self.controllers.values():
@@ -255,7 +256,7 @@ class RgbCoordinator(object):
 		# check if a led_set with the given name already exists
 		verify_rgb_led_set_json(led_set_json)
 		if led_set_json['name'] in self.led_sets:
-				raise HttpError('Name already exists', 409)
+			raise HttpError('Name already exists', 409)
 
 		# create the new led_set and register the leds
 		led_set = RgbLedSet(led_set_json['name'])
@@ -265,7 +266,7 @@ class RgbCoordinator(object):
 			if 'color' in led_json:
 				self.update_led_color(led_json, led)
 		self.led_sets[led_set.name] = led_set
-		
+		self.store_led_sets()
 		return self.get_led_set(led_set.name)
 	
 	def update_led_set(self, led_set_json, led_set_name):
@@ -297,6 +298,8 @@ class RgbCoordinator(object):
 			# modify the name and re-add the LED-Set to the dictionary
 			led_set.set_name(led_set_json['name'])
 			self.led_sets[led_set.name] = led_set
+		
+		self.store_led_sets()
 		return led_set.to_dict()
 	
 	def remove_led_set(self, led_set_name):
@@ -306,8 +309,34 @@ class RgbCoordinator(object):
 		
 		led_set = self.led_sets[led_set_name]
 		led_set.set_name('none')
+		# TODO: LEDs should be switched off when Set is removed
 		del self.led_sets[led_set_name]
+		self.store_led_sets()
+	
+	# stores the current led sets and their status in a file
+	def store_led_sets(self):
+		with io.open('led_set.json', 'w', encoding='utf-8') as led_set_file:
+			if (len(self.led_sets) > 0):
+				led_set_file.write(json.dumps(self.get_led_sets(),  ensure_ascii=False))
+			else:
+				led_set_file.write(u"")
 
+	# tries to restore the led sets from the file
+	def restore_led_sets(self):
+		if os.path.exists("led_set.json"):
+			with io.open('led_set.json', 'r', encoding='utf-8') as led_set_file:
+				try:
+					led_sets = json.loads(led_set_file.read())
+				except ValueError as e:
+					print(e, "LED-Set storage file empty or corrupted")
+					return
+				# if the file exists and could be parsed try to add the LED-Sets
+				for led_set in led_sets:
+					try:
+						self.add_led_set(led_set)
+					except HttpError as e:
+						print(e)
+	
 	# update values of led instance
 	def update_led_color(self, led_json, led = None):
 		if led is None:
