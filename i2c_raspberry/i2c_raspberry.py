@@ -36,12 +36,18 @@ class RgbLedSet(object):
 	def __init__(self, name="undef"):
 		self.leds = []
 		self.name = name
+		self.status = 'on'
 	
 	def set_name(self, new_name):
 		self.name = new_name
 		for led in self.leds:
 			led.led_set = new_name
 	
+	def set_status(self, status):
+		self.status = 'off' if status in ['off', 'OFF', 'Off'] else 'on'
+		for led in self.leds:
+			led.enabled = False if self.status == 'off' else True
+
 	def add_led(self, led):
 		led.led_set = self.name
 		if led not in self.leds:
@@ -65,7 +71,8 @@ class RgbLedSet(object):
 			led_list.append(led.to_dict())
 		led_set_dict = {
 			'name': self.name,
-			'leds': led_list
+			'leds': led_list,
+			'status' : self.status
 		}
 		
 		return led_set_dict
@@ -82,6 +89,7 @@ class RgbLed(object):
 		self.master_addr = master_addr
 		self.channel = channel
 		self.led_set = 'none'
+		self.enabled = True
 
 	def __eq__(self, other):
 		return self.master_addr == other.master_addr and self.channel == other.channel
@@ -158,10 +166,10 @@ class RgbController(object):
 	def update_i2c_buffer(self):
 		for idx in range(len(self.leds)):
 				led = self.leds[idx]
-				self.i2c_buffer[idx*LED_CHANNELS] = int(led.r)
-				self.i2c_buffer[idx*LED_CHANNELS+1] = int(led.g1)
-				self.i2c_buffer[idx*LED_CHANNELS+2] = int(led.g2)
-				self.i2c_buffer[idx*LED_CHANNELS+3] = int(led.b)
+				self.i2c_buffer[idx*LED_CHANNELS] = int(led.r if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS+1] = int(led.g1 if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS+2] = int(led.g2 if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS+3] = int(led.b if led.enabled else 0)
 				self.i2c_buffer[RX_CURRENT_LIMIT+idx] = int(led.convert_current_limit())
 				if (led.current_limit_update):
 					self.i2c_buffer[RX_CURRENT_UPDATE] = 0x01
@@ -235,6 +243,7 @@ class RgbCoordinator(object):
 		self.led_sets = {}
 		self.create_mock_controllers()
 		self.random_colors()
+		self.restore_led_sets()
 
 	def random_colors(self):
 		for controller in self.controllers.values():
@@ -314,6 +323,10 @@ class RgbCoordinator(object):
 			led_set.add_led(led)
 			if 'color' in led_json:
 				self.update_led_color(led_json, led)
+		# set the status of the LED-Set and the associated LEDs (on/off)
+		led_set.set_status(led_set_json['status'])
+		
+		# add the new LED-Set to the coordinator and store it
 		self.led_sets[led_set.name] = led_set
 		self.store_led_sets()
 		self.update_controllers() #TODO: remove
@@ -335,6 +348,9 @@ class RgbCoordinator(object):
 				led_set.add_led(led)
 			if 'color' in led_json:
 				self.update_led_color(led_json, led)
+		
+		# set the status of the LED-Set and the associated LEDs (on/off)
+		led_set.set_status(led_set_json['status'])
 		
 		# check if leds were removed from the set
 		for led in set(led_set.leds).difference(tmp_led_list):
@@ -423,7 +439,7 @@ def verify_rgb_led_json(led_json):
 
 # verify that the json representation of an RgbLedSet is complete
 def verify_rgb_led_set_json(led_set_json):
-	keys = ['name', 'leds']
+	keys = ['name', 'leds', 'status']
 	for key in keys:
 		if key not in led_set_json:
 			raise HttpError('Incomplete data set', 409)

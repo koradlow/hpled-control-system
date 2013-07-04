@@ -153,27 +153,34 @@
 
 		<div data-role="content">
 			<form>
-				<label for="led_set_live_mode">Live update mode:</label>
-				<select name="flip-1" id="led_set_live_mode" data-role="slider">
-						<option value="off">Off</option>
-						<option value="on">On</option>
-				</select>
 				<label for="led_set_name">LED-Set Name:</label>
 				<input type="text" name="text-basic" id="led_set_name" value="">
-				<label for="led_set_output">Output:</label>
-				<select name="flip-1" id="led_set_output" data-role="slider">
+		
+				<div data-role="fieldcontain">
+				<label for="led_set_live_mode">Live update mode:</label>
+				<select name="flip-1" id="led_set_live_mode" data-role="slider" data-mini="true">
 						<option value="off">Off</option>
 						<option value="on">On</option>
 				</select>
-			<div class="ui-grid-a ui-responsive" id='#contr_led_grid'>
-				<!-- LEDs belonging to this set are embedded here dynamically -->
-			</div>
-			<div data-role="controlgroup" data-type="horizontal">
-				<input value="Save" type="button" data-icon="home" id="contr_led_save_button">
-				<input value="Apply" type="button" data-icon="check" id="contr_led_apply_button">
-				<input value="Cancel" type="button" data-icon="delete" id="contr_led_cancel_button">
-			</div>
-		</form>
+				</div>
+			
+				<div data-role="fieldcontain">
+				<label for="led_set_status">Status:</label>
+				<select name="flip-2" id="led_set_status" data-role="slider" data-mini="true">
+						<option value="off">Off</option>
+						<option value="on">On</option>
+				</select>
+				</div>
+
+				<div class="ui-grid-a ui-responsive" id='#contr_led_grid'>
+					<!-- LEDs belonging to this set are embedded here dynamically -->
+				</div>
+				<div data-role="controlgroup" data-type="horizontal">
+					<input value="Save" type="button" data-icon="home" id="contr_led_save_button">
+					<input value="Apply" type="button" data-icon="check" id="contr_led_apply_button">
+					<input value="Cancel" type="button" data-icon="delete" id="contr_led_cancel_button">
+				</div>
+			</form>
 		</div><!-- /content -->
 	</div><!-- /page -->
 	</page>

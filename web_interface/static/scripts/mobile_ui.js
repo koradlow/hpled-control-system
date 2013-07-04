@@ -383,6 +383,7 @@ $(document).on('click', '#edit_led_set .save_button', function(event) {
 	// use POST to create a new LED-Set if there is no URI for the object
 	// use PUT to update an existing resource
 	if(typeof led_set.uri === 'undefined') {
+		led_set.status = 'on';
 		postLedSet(led_set);
 		$('.ui-dialog').dialog('close');
 	} else {
@@ -416,8 +417,9 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 	}
 	// Get the state of the LED-Set that will be controlled
 	var led_set = $(this).data('led-set');
-	$(this).find('#led_set_live_mode').val('off').slider('refresh');
 	$(this).find('#led_set_name').val(led_set.name);
+	$(this).find('#led_set_live_mode').val('off').slider('refresh');
+	$(this).find('#led_set_status').val(led_set.status).slider('refresh');
 	$(this).data('live-mode', false);
 	
 	// Remove the old control blocks
@@ -486,6 +488,15 @@ $(document).on('slidestop', '#led_set_live_mode', function(event, ui) {
 		$('#control_led_set').data('live-mode', false);
 	}
 	
+});
+
+// switch the LEDs belonging to this LED set off/on
+$(document).on('slidestop', '#led_set_status', function(event, ui) {
+	var led_set = $('#control_led_set').data('led-set');
+	led_set.status = $(this).val();
+	if ($('#control_led_set').data('live-mode')) {
+		putLedSet(led_set);
+	}
 });
 
 // Update the name of the LED-Set
