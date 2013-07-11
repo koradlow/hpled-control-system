@@ -7,7 +7,6 @@ from pprint import pprint
 
 import i2c as i2c
 
-I2C_SLAVE_ADDRESS = 0x28
 LED_CNT = 4
 LED_CHANNELS = 4
 RX_SIZE =  25
@@ -238,20 +237,11 @@ def read(source, count):
 
 class RgbCoordinator(object):
 	def __init__(self):
-		#TODO: should store list of known addresses and check them at restart
 		self.controllers = {}
 		self.led_sets = {}
-		self.create_mock_controllers()
-		self.random_colors()
+		self.scan_i2c_bus()
 		self.restore_led_sets()
-
-	def random_colors(self):
-		for controller in self.controllers.values():
-			for led in controller.leds:
-				color = dict(r=randint(0, 255), g=randint(0, 255), b=randint(0,255))
-				led.set_color(color)
-				led.set_current_limit(125)
-			controller.update()
+		
 
 	def update_controllers(self):
 		for controller in self.controllers.values():
@@ -263,6 +253,20 @@ class RgbCoordinator(object):
 		skip known addresses,
 		add newly found RGBControllers to the local list
 		'''
+		controllers = []
+		for addr in range(5, 127, 1):
+			if addr not in self.controllers.keys():
+				try:
+					with i2c.I2CMaster() as bus:
+						bus.transaction(
+							i2c.writing_bytes(addr, 0x00))
+					controllers.append(addr)
+				except Exception as e:
+					None
+					# no controller for this address
+		for addr in controllers:
+			self.controllers[addr] = RgbController(addr, "Controller"+str(addr))
+		pprint(controllers)
 
 	# create a list of controllers that can be jsonified for the RESTful API
 	def get_controllers(self):
@@ -420,9 +424,6 @@ class RgbCoordinator(object):
 		led = self.controllers[address].get_led(int(led_json['channel']))
 		return led
 
-	def create_mock_controllers(self):
-		self.controllers[I2C_SLAVE_ADDRESS] = RgbController(I2C_SLAVE_ADDRESS, "Controller1")
-
 # verify the completeness of the controller update
 def verify_rgb_controller_json(controller_json):
 	keys = ['addr', 'brightness', 'name', 'led_cnt']
@@ -495,9 +496,9 @@ class HttpError(Exception):
 
 
 
-
 if __name__ == "__main__":
-	Controller1 = RgbController(I2C_SLAVE_ADDRESS, "Controller1")
+	i2c_address = 0x29
+	Controller1 = RgbController(i2c_address, "Controller1")
 	Set1 = RgbLedSet("set1")
 	Set1.add_led(Controller1.get_led(0))
 	Set1.add_led(Controller1.get_led(1))
