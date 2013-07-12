@@ -127,9 +127,9 @@ void sendByte(byte value) {
 }
 
 void sendBytes(uint16_t value) {
-	bitSet(PORTB,ledLatchPinPORTB);
 	SPI.transfer((value >> 8));
 	SPI.transfer(value);
+	bitSet(PORTB,ledLatchPinPORTB);
 	bitClear(PORTB,ledLatchPinPORTB);
 }
 
@@ -155,12 +155,13 @@ void updatePWM() {
 	/* calculate the pwm values for the next iteration */
 	int current_val = ticker * PWM_STEP;
 	uint8_t soft_pwm_idx = 0;
-	uint8_t rgb[3];
+	uint8_t rgb[4];
 	for(uint8_t led = 0; led < LED_COUNT; led++) {
 		rgb[0] = rgb_state.led[led].r;
 		rgb[1] = rgb_state.led[led].g_1;
-		rgb[2] = rgb_state.led[led].b;
-		for (uint8_t channel = 0; channel < 3; channel++) {
+		rgb[2] = rgb_state.led[led].g_2;
+		rgb[3] = rgb_state.led[led].b;
+		for (uint8_t channel = 0; channel < 4; channel++) {
 			if (current_val > 255-rgb[channel]) soft_pwm |= _BV(soft_pwm_idx);
 			++soft_pwm_idx;
 		}
@@ -217,7 +218,6 @@ void loop() {
 	}
 	/* update the brightness for all LED drivers */
 	analogWrite(ledOEPin, rgb_state.brightness);
-	digitalWrite(debugLed, !digitalRead(debugLed));
 	
 	/* check if the current limit was updated */
 	if (rxbuffer[RX_CURRENT_UPDATE] != 0x00) {
