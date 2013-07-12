@@ -80,10 +80,7 @@ class RgbLedSet(object):
 class RgbLed(object):
 	def __init__(self, master_addr, channel, current_limit=245):
 		self.current_limit = current_limit
-		self.r = 0
-		self.g1 = 0
-		self.g2 = 0
-		self.b = 0
+		self.channels = [0, 0, 0, 0]
 		self.current_limit_update = False
 		self.master_addr = master_addr
 		self.channel = channel
@@ -103,18 +100,18 @@ class RgbLed(object):
 		g2 = rgb_color.get('g2', None)
 		b = rgb_color.get('b', None)
 
-		if r is not None: self.r = r
-		if g is not None: self.g1 = self.g2 = g
-		if g1 is not None: self.g1 = g1
-		if g2 is not None: self.g2 = g2
-		if b is not None: self.b = b
+		if r is not None: self.channels[0] = r
+		if g is not None: self.channels[1] = self.channels[2] = g
+		if g1 is not None: self.channels[1] = g1
+		if g2 is not None: self.channels[2] = g2
+		if b is not None: self.channels[3] = b
 	
 	def get_color(self):
 		return {
-			'r':self.r, 
-			'g':self.g1,
-			'g2':self.g2,
-			'b':self.b,
+			'r':self.channels[0], 
+			'g':self.channels[1],
+			'g2':self.channels[2],
+			'b':self.channels[3],
 		}
 
 	def set_current_limit(self, current_limit):
@@ -165,10 +162,10 @@ class RgbController(object):
 	def update_i2c_buffer(self):
 		for idx in range(len(self.leds)):
 				led = self.leds[idx]
-				self.i2c_buffer[idx*LED_CHANNELS] = int(led.r if led.enabled else 0)
-				self.i2c_buffer[idx*LED_CHANNELS+1] = int(led.g1 if led.enabled else 0)
-				self.i2c_buffer[idx*LED_CHANNELS+2] = int(led.g2 if led.enabled else 0)
-				self.i2c_buffer[idx*LED_CHANNELS+3] = int(led.b if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS] = int(led.channels[0] if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS+1] = int(led.channels[1] if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS+2] = int(led.channels[2] if led.enabled else 0)
+				self.i2c_buffer[idx*LED_CHANNELS+3] = int(led.channels[3] if led.enabled else 0)
 				self.i2c_buffer[RX_CURRENT_LIMIT+idx] = int(led.convert_current_limit())
 				if (led.current_limit_update):
 					self.i2c_buffer[RX_CURRENT_UPDATE] = 0x01
