@@ -138,6 +138,25 @@ void twi_sl_rcv_cb(uint8_t addr, uint8_t length) {
 	twi_rx_event = true;
 }
 
+/* calculate the bitfield for 8 PWM channels */
+uint8_t pwm_bitfield(uint8_t idx, uint8_t current_val) {
+	static uint8_t bitfield = 0;
+	static uint8_t soft_pwm_idx = 0;
+	static uint8_t rgb[4];
+	for(uint8_t led = idx; led < idx+2; led++) {
+		rgb[0] = rgb_state.led[led].r;
+		rgb[1] = rgb_state.led[led].g_1;
+		rgb[2] = rgb_state.led[led].g_2;
+		rgb[3] = rgb_state.led[led].b;
+		for (uint8_t channel = 0; channel < 4; channel++) {
+				if (current_val > 255-rgb[channel])
+					bitfield |= _BV(soft_pwm_idx);
+				++soft_pwm_idx;
+			}
+		}
+		return bitfield;
+}
+
 /* calculate the soft pwm values, and output them via SPI
  * (periodic callback function for Timer1) */
 void updatePWM() {
@@ -153,19 +172,9 @@ void updatePWM() {
 	}
 
 	/* calculate the pwm values for the next iteration */
-	int current_val = ticker * PWM_STEP;
-	uint8_t soft_pwm_idx = 0;
-	uint8_t rgb[4];
-	for(uint8_t led = 0; led < LED_COUNT; led++) {
-		rgb[0] = rgb_state.led[led].r;
-		rgb[1] = rgb_state.led[led].g_1;
-		rgb[2] = rgb_state.led[led].g_2;
-		rgb[3] = rgb_state.led[led].b;
-		for (uint8_t channel = 0; channel < 4; channel++) {
-			if (current_val > 255-rgb[channel]) soft_pwm |= _BV(soft_pwm_idx);
-			++soft_pwm_idx;
-		}
-	}
+	uint8_t current_val = ticker * PWM_STEP;
+	soft_pwm |= pwm_bitfield(0, current_val);
+	soft_pwm |= pwm_bitfield(2, current_val) << 8;
 }
 
 void setup() {
