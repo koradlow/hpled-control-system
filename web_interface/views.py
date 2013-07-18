@@ -28,6 +28,10 @@ from i2c_raspberry import *
 def render_website():
 	return render_template('mobile_ui.html')
 
+@app.route('/testing')
+def testcase():
+	return render_template('testrunner.html')
+
 
 @app.errorhandler(400)
 def bad_request(error, message=None):
@@ -90,7 +94,7 @@ class ControllerAPI(MethodView):
 
 	def put(self, controller_address):
 		try:
-			self.coordinator.update_controller(request.get_json())
+			self.coordinator.update_controller(request.get_json(), controller_address)
 			return jsonify(self.coordinator.get_controller(controller_address))
 		except HttpError as e:
 			print(e)

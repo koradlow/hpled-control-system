@@ -689,6 +689,18 @@ function putController(controllerJson) {
 	});
 }
  
+//function getControllers(handleDataFunction) {
+	///* Request list of controllers */
+	//$.ajax({
+		//type: "GET",
+		//url: "http://"+ location.host + "/controller",
+		//data: null,
+		//dataType: "json",
+		//success: function(data, xml_request, options) {
+			//handleDataFunction(data);
+		//}
+	//});
+//}
 function getControllers(handleDataFunction) {
 	/* Request list of controllers */
 	$.ajax({
@@ -696,10 +708,10 @@ function getControllers(handleDataFunction) {
 		url: "http://"+ location.host + "/controller",
 		data: null,
 		dataType: "json",
-		success: function(data, xml_request, options) {
+		timeout: 1000 })
+		.done( function(data, xml_request, options) {
 			handleDataFunction(data);
-		}
-	});
+		});
 }
 
 function getLedSets(handleDataFunction) {

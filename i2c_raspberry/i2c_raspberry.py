@@ -278,9 +278,14 @@ class RgbCoordinator(object):
 			raise HttpError('No controller with given address', 404)
 		return self.controllers[address].to_dict()
 
-	def update_controller(self, controller_json):
+	def update_controller(self, controller_json, address):
 		verify_rgb_controller_json(controller_json)
-
+		# verify that the update doesn't change constant values
+		if address is not controller_json['addr']:
+			raise HttpError('Address change not possible via API', 409)
+		if controller_json['led_cnt'] != LED_CNT:
+			raise HttpError('LED count change not possible via API', 409)
+		
 		# identify the local controller that will be updated
 		address = int(controller_json['addr'])
 		if address not in self.controllers:
@@ -316,7 +321,11 @@ class RgbCoordinator(object):
 		verify_rgb_led_set_json(led_set_json)
 		if led_set_json['name'] in self.led_sets:
 			raise HttpError('Name already exists', 409)
-
+		
+		# check if all leds of the Led set are available
+		for led_json in led_set_json['leds']:
+			self.identify_led(led_json)
+			
 		# create the new led_set and register the leds
 		led_set = RgbLedSet(led_set_json['name'])
 		for led_json in led_set_json['leds']:
@@ -418,6 +427,8 @@ class RgbCoordinator(object):
 		address = int(led_json['controller'])
 		if address not in self.controllers:
 			raise HttpError('No controller with given address', 404)
+		if int(led_json['channel']) >= self.controllers[address].led_cnt:
+			raise HttpError('LED channel out of range', 409)
 		led = self.controllers[address].get_led(int(led_json['channel']))
 		return led
 
@@ -430,10 +441,10 @@ def verify_rgb_controller_json(controller_json):
 
 # verify that the json representation of an RgbLed is complete
 def verify_rgb_led_json(led_json):
-	keys = ['controller', 'channel', 'led_set', 'current_limit']
-	for key in keys:
-		if key not in led_json:
-			raise HttpError('Incomplete data set', 409)
+		keys = ['controller', 'channel', 'led_set', 'current_limit']
+		for key in keys:
+			if key not in led_json:
+				raise HttpError('Incomplete data set', 409)
 
 # verify that the json representation of an RgbLedSet is complete
 def verify_rgb_led_set_json(led_set_json):
@@ -442,6 +453,8 @@ def verify_rgb_led_set_json(led_set_json):
 		if key not in led_set_json:
 			raise HttpError('Incomplete data set', 409)
 		if key == 'leds':
+			if not (led_set_json['leds']):
+				raise HttpError('Incomplete data set, no LEDs in Set', 409)
 			for led_json in led_set_json['leds']:
 				verify_rgb_led_json(led_json)
 
