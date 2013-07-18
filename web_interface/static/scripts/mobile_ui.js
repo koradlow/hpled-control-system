@@ -136,8 +136,8 @@ $(document).on('click', '.edit_led_set', function(q) {
 	}
 });
 
-// Set the 'data-id' attribute to show the "Controller Details" page which
-// controller should be displayed
+// Intercept clicks on "controller_list" list entries to append the correct
+// data to the page
 $(document).on('click', '#controller_list li', function(q) {
 	var controller = $(this).data('controller');
 	$('#contr_details').data('controller', controller);
