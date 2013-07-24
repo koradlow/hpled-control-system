@@ -419,8 +419,10 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 	var led_set = $(this).data('led-set');
 	$(this).find('#led_set_name').val(led_set.name);
 	$(this).find('#led_set_live_mode').val('off').slider('refresh');
+	$(this).find('#led_set_unify_mode').val('off').slider('refresh');
 	$(this).find('#led_set_status').val(led_set.status).slider('refresh');
 	$(this).data('live-mode', false);
+	$(this).data('unify-mode', false);
 	
 	// Remove the old control blocks
 	$(this).find('div.ui-responsive').children().remove();
@@ -435,6 +437,7 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 		// colored button allowing to set the LED Color
 		var led_button = $('<div>')
 			.addClass('circle')
+			.attr('id', 'led'+i+'_color')
 			.css('background-color', rgb_color.toRgbString())
 				.spectrum( {
 					clickoutFiresChange: true,
@@ -447,6 +450,14 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 						var led_set = $('#control_led_set').data('led-set');
 						var led_id = $(this).parent().data('id');
 						led_set.leds[led_id].color = color.toRgb();
+						if ($('#control_led_set').data('unify-mode')) {
+							for (var i = 0; i < led_set.leds.length; i++) {
+								led_set.leds[i].color = color.toRgb();
+								$('#led'+i+'_color')
+									.css('background-color', color.toRgbString())
+									.spectrum("set", color);
+							}
+						}
 						if ($('#control_led_set').data('live-mode')) {
 							putLedSet(led_set);
 						}
@@ -490,6 +501,18 @@ $(document).on('slidestop', '#led_set_live_mode', function(event, ui) {
 	
 });
 
+// enable/disable the unify update mode according to the switch position
+$(document).on('slidestop', '#led_set_unify_mode', function(event, ui) {
+	if (this.value === 'on') {
+		$('#control_led_set').data('unify-mode', true);
+		console.log($('#control_led_set').data('unify-mode'));
+	} else {
+		$('#control_led_set').data('unify-mode', false);
+		console.log($('#control_led_set').data('unify-mode'));
+	}
+	
+});
+
 // switch the LEDs belonging to this LED set off/on
 $(document).on('slidestop', '#led_set_status', function(event, ui) {
 	var led_set = $('#control_led_set').data('led-set');
@@ -514,10 +537,20 @@ $(document).on('change', '#led_set_name', function(event) {
 $(document).on('slidestop', '#control_led_set [name*="slider"]', function(event, ui) {
 	var led_set = $('#control_led_set').data('led-set');
 	var id = $(this).closest('div .led-status').data('id');
-	led_set.leds[id].current_limit = parseInt($(this).val());
+	var new_limit = parseInt($(this).val());
+	led_set.leds[id].current_limit = new_limit;
+	if ($('#control_led_set').data('unify-mode')) {
+		for (var i = 0; i < led_set.leds.length; i++) {
+			led_set.leds[i].current_limit = new_limit;
+			$('#led'+i+'_lim')
+				.val(new_limit)
+				.slider('refresh');
+		}
+	}
 	if ($('#control_led_set').data('live-mode')) {
 		putLedSet(led_set);
 	}
+	
 });
 
 // Send the updated LED-Set to the controller, return to previous page
