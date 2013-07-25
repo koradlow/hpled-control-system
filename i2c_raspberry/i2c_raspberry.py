@@ -115,8 +115,9 @@ class RgbLed(object):
 		}
 
 	def set_current_limit(self, current_limit):
-		self.current_limit = current_limit
-		self.current_limit_update = True
+		if current_limit is not self.current_limit:
+			self.current_limit = int(current_limit)
+			self.current_limit_update = True
 
 	# to make it easy to use the API, the interface uses values in mA. These
 	# values have to be converted into the values expected by the LED-Driver board.

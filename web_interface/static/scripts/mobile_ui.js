@@ -229,7 +229,7 @@ $(document).on('change', '#contr_name', function(event) {
 
 // Update the current limit of LED, if it was changed 
 // (triggered if the "conr_ledx_lim" slider was moved)
-$(document).on('slidestop', '#contr_details .current_limit', function(event, ui) {
+$(document).on('slidestop', '#contr_details [name*=slider]', function(event, ui) {
 	var controller = $('#contr_details').data('controller');
 	var id = $(this).closest('div .led-status').data('id');
 	controller.leds[id].current_limit = $(this).val();
@@ -423,7 +423,7 @@ $(document).on('pagebeforeshow', '#control_led_set', function(event) {
 	$(this).find('#led_set_status').val(led_set.status).slider('refresh');
 	$(this).data('live-mode', false);
 	$(this).data('unify-mode', false);
-	
+
 	// Remove the old control blocks
 	$(this).find('div.ui-responsive').children().remove();
 	
@@ -512,6 +512,55 @@ $(document).on('slidestop', '#led_set_unify_mode', function(event, ui) {
 	}
 	
 });
+
+
+$(function() {
+		var timer = null;
+		var interval = 100;
+		var ticker = 0;
+
+	function tick() {
+		ticker += 0.025;
+		callback();
+		start();        // restart the timer
+	};
+ 
+ function start() {
+		timer = setTimeout(tick, interval);
+		$('#control_led_set').find('#led_set_unify_mode').val('on').slider('refresh');
+		$('#control_led_set').find('#led_set_live_mode').val('on').slider('refresh');
+		$('#control_led_set').data('unify-mode', true);
+		$('#control_led_set').data('live-mode', true);
+		
+	};
+
+	function stop() {
+		clearTimeout(timer);
+		tick = 0;
+	};
+	
+	function callback() {
+		var led_set = $('#control_led_set').data('led-set');
+		// color string for this LED
+		var rgb_color = tinycolor(led_set.leds[0].color);
+		var new_color = rgb_color.toRgb();
+		new_color.r = Math.round((Math.sin(ticker)+1) * 128);
+		new_color.g = Math.round((Math.sin(ticker+1.8)+1) * 128);
+		new_color.b = Math.round((Math.sin(ticker+2.5)+1) * 128);
+		
+		// trigger the color change event for one of the LEDs
+		$('#led0_color')
+			.css('background-color', new_color)
+			.spectrum("set", new_color);
+		$('#led0_color').spectrum('set', new_color);
+		$('#led0_color').trigger('click');
+	};
+	
+	$(document).on('click', '#led_set_animate', start);
+	$(document).on('click', '#led_set_animate_stop', stop);
+
+});
+
 
 // switch the LEDs belonging to this LED set off/on
 $(document).on('slidestop', '#led_set_status', function(event, ui) {
